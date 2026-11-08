@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "weather-clothing-cycling-agent"
+version = "0.1.0"
+description = "A reliable and cost-effective LangGraph AI agent for daily & 7-day weather, clothing layer decisions, and cycling suitability."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "langgraph>=0.2.0",
+    "langchain>=0.2.0",
+    "langchain-core>=0.2.0",
+    "langchain-google-genai>=1.0.0",
+    "langchain-openai>=0.1.0",
+    "httpx>=0.25.0",
+    "pydantic>=2.0.0",
+    "python-dotenv>=1.0.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["weather_agent*"]
