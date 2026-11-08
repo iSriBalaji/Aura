@@ -40,6 +40,7 @@ class WeatherAgentState(TypedDict, total=False):
 
     # Model selection & optional overrides
     model_name: Optional[str]
+    api_key: Optional[str]
 
     # Final synthesized user-facing markdown response
     final_report: Optional[str]

@@ -25,8 +25,7 @@ from weather_agent.tts_service import clean_markdown_for_speech, generate_audio_
 
 # Page Configuration
 st.set_page_config(
-    page_title="Aura — Personal AI Copilot for Baju",
-    page_icon="✨",
+    page_title="Aura — Copilot for Baju",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -84,6 +83,7 @@ def run_aura_query(
     location_override: str = None,
     intent_override: str = None,
     model_override: str = None,
+    api_key: str = None,
 ):
     """Invoke the LangGraph Aura agent and return markdown response."""
     state_input = {}
@@ -97,13 +97,16 @@ def run_aura_query(
     if model_override:
         state_input["model_name"] = model_override
 
+    if api_key and api_key.strip():
+        state_input["api_key"] = api_key.strip()
+
     state_input["messages"] = [HumanMessage(content=query)]
 
     try:
         result = graph.invoke(state_input)
         return result.get("final_report", "I processed your request, but could not produce a report.")
     except Exception as e:
-        return f"⚠️ **Error running Aura**: {str(e)}\n\nPlease try again or check your location input."
+        return f"**Error running Aura**: {str(e)}\n\nPlease try again or check your location input."
 
 
 def render_audio_player(markdown_text: str, key_suffix: str = "latest"):
@@ -120,12 +123,12 @@ def render_audio_player(markdown_text: str, key_suffix: str = "latest"):
     # Browser-native Web Speech API widget: 100% free, zero lag, works on iOS/Android/Mac/PC
     html_code = f"""
     <div style="display: flex; align-items: center; gap: 10px; margin-top: 8px; margin-bottom: 6px; padding: 7px 12px; background: #F8FAFC; border-radius: 8px; border: 1px solid #E2E8F0;">
-        <span style="font-size: 13px; font-weight: 600; color: #334155;">🎙️ Aura Voice:</span>
+        <span style="font-size: 13px; font-weight: 600; color: #334155;">Voice:</span>
         <button id="playBtn_{key_suffix}" onclick="speakAura_{key_suffix}()" style="padding: 5px 12px; font-size: 12px; font-weight: 600; background: #2563EB; color: white; border: none; border-radius: 6px; cursor: pointer;">
-            ▶️ Speak
+            Speak
         </button>
         <button onclick="window.speechSynthesis.cancel()" style="padding: 5px 12px; font-size: 12px; font-weight: 600; background: #E2E8F0; color: #475569; border: none; border-radius: 6px; cursor: pointer;">
-            ⏹️ Stop
+            Stop
         </button>
     </div>
     <script>
@@ -142,7 +145,7 @@ def render_audio_player(markdown_text: str, key_suffix: str = "latest"):
     components.html(html_code, height=50)
 
     # Optional MP3 generation expander
-    with st.expander("🔊 Generate Audio File (MP3)", expanded=False):
+    with st.expander("Generate Audio File (MP3)", expanded=False):
         if st.button("Generate MP3 Audio", key=f"gen_mp3_{key_suffix}"):
             with st.spinner("Generating MP3..."):
                 audio_bytes = generate_audio_bytes(markdown_text)
@@ -159,52 +162,50 @@ if "messages" not in st.session_state:
 
 # ===================== SIDEBAR =====================
 with st.sidebar:
-    st.markdown("### ✨ Aura Copilot")
-    st.caption("Personal Daily Lifestyle & Intelligence Advisor")
-    
-    st.info("👤 **Owner:** Baju (*Sri Balaji*)\n\n🎯 **Status:** Online & Ready", icon="🌟")
+    st.markdown("### Aura")
+    st.caption("Personal Copilot for Baju")
     
     st.markdown("---")
-    st.markdown("#### 📍 Location")
+    st.markdown("#### Location")
     default_loc = st.text_input("Active Location / City", value="Prospect Heights, Illinois")
     
-    if st.button("📡 Auto-Detect Device Location", use_container_width=True):
-        with st.spinner("Detecting IP location..."):
+    if st.button("Auto-Detect Device Location", use_container_width=True):
+        with st.spinner("Detecting location..."):
             detected = detect_device_location()
             st.session_state.detected_location = detected.get("name", "Unknown")
             st.success(f"Detected: {st.session_state.detected_location}")
             default_loc = st.session_state.detected_location
 
     st.markdown("---")
-    st.markdown("#### ⚡ Quick Daily Briefings")
-    st.caption("Tap any quick button for an instant report:")
+    st.markdown("#### Quick Briefings")
+    st.caption("Tap any button for an instant report:")
 
     col_btn1, col_btn2 = st.columns(2)
     with col_btn1:
-        btn_weather = st.button("🌤️ Weather & Layers", use_container_width=True)
-        btn_optimal_window = st.button("⏱️ Optimal Ride Window", use_container_width=True)
-        btn_news = st.button("📰 Trending News", use_container_width=True)
+        btn_weather = st.button("Weather & Layers", use_container_width=True)
+        btn_optimal_window = st.button("Optimal Ride Window", use_container_width=True)
+        btn_news = st.button("Trending News", use_container_width=True)
     with col_btn2:
-        btn_cycling = st.button("🚴 Cycling Score", use_container_width=True)
-        btn_events = st.button("🎟️ Events & Sports", use_container_width=True)
-        btn_memory = st.button("🧠 Show My Memory", use_container_width=True)
+        btn_cycling = st.button("Cycling Score", use_container_width=True)
+        btn_events = st.button("Events & Sports", use_container_width=True)
+        btn_memory = st.button("Saved Memory", use_container_width=True)
 
-    btn_full = st.button("📅 7-Day Complete Planner", use_container_width=True)
+    btn_full = st.button("7-Day Complete Planner", use_container_width=True)
 
     st.markdown("---")
-    with st.expander("🧠 Baju's Memory & Preferences", expanded=False):
+    with st.expander("Memory & Preferences", expanded=False):
         profile = load_profile()
         sports = profile.get("sports", {})
         cyc = profile.get("cycling", {})
-        st.markdown(f"**🏎️ F1:** {', '.join(sports.get('f1_teams', []))} (*{', '.join(sports.get('f1_drivers', []))}*)")
-        st.markdown(f"**🏈 NFL:** {', '.join(sports.get('nfl_teams', []))}")
-        st.markdown(f"**🏏 Cricket:** {', '.join(sports.get('cricket_teams', []))}")
-        st.markdown(f"**🚴 Ride Comfort:** Min {cyc.get('min_comfortable_temp_f')}°F | Max wind {cyc.get('max_acceptable_wind_mph')} mph")
+        st.markdown(f"**F1:** {', '.join(sports.get('f1_teams', []))} (*{', '.join(sports.get('f1_drivers', []))}*)")
+        st.markdown(f"**NFL:** {', '.join(sports.get('nfl_teams', []))}")
+        st.markdown(f"**Cricket:** {', '.join(sports.get('cricket_teams', []))}")
+        st.markdown(f"**Ride Comfort:** Min {cyc.get('min_comfortable_temp_f')}°F | Max wind {cyc.get('max_acceptable_wind_mph')} mph")
         
         st.markdown("---")
         st.markdown("**Add a New Memory Note:**")
         new_memory_input = st.text_input("Teach Aura something new:", placeholder="e.g. Prefer riding between 1 PM and 4 PM", key="sidebar_new_mem")
-        if st.button("💾 Save Memory Note", use_container_width=True):
+        if st.button("Save Memory Note", use_container_width=True):
             if new_memory_input.strip():
                 if add_custom_memory(new_memory_input.strip()):
                     st.success("Saved to persistent memory!")
@@ -223,71 +224,115 @@ with st.sidebar:
                         st.rerun()
 
     st.markdown("---")
-    st.markdown("#### 🤖 AI Engine & Model Switcher")
+    st.markdown("#### AI Engine & Model")
 
     MODEL_OPTIONS = {
-        "⚡ Google Gemini 2.5 Flash (Free Tier • Recommended)": "gemini-2.5-flash",
-        "🚀 Google Gemini 2.5 Flash Lite (Ultra-Fast • Free Tier)": "gemini-2.5-flash-lite",
-        "✨ Google Gemini 1.5 Flash (Free Tier)": "gemini-1.5-flash",
-        "🧠 Google Gemini 1.5 Pro (Deep Reasoning • Free Tier)": "gemini-1.5-pro",
-        "🦙 Groq Llama 3.3 70B (Ultra-Fast Open Source • Free Tier)": "llama-3.3-70b-versatile",
-        "⚡ Groq Llama 3.1 8B (Instant Open Source • Free Tier)": "llama-3.1-8b-instant",
-        "🟢 OpenAI GPT-4o-mini (Paid Key)": "gpt-4o-mini",
-        "🛡️ Built-in $0 Engine (No API Key • Offline & Free)": "builtin",
+        "Google Gemini 2.5 Flash (Recommended)": "gemini-2.5-flash",
+        "Google Gemini 2.5 Flash Lite": "gemini-2.5-flash-lite",
+        "Google Gemini 1.5 Flash": "gemini-1.5-flash",
+        "Google Gemini 1.5 Pro": "gemini-1.5-pro",
+        "Groq Llama 3.3 70B": "llama-3.3-70b-versatile",
+        "Groq Llama 3.1 8B": "llama-3.1-8b-instant",
+        "OpenAI GPT-4o-mini": "gpt-4o-mini",
+        "Built-in Engine (Offline)": "builtin",
     }
 
     selected_label = st.selectbox(
-        "Active Intelligence Model",
+        "Active Model",
         options=list(MODEL_OPTIONS.keys()),
         index=0,
-        help="Choose the model used for synthesis. Free options include Google Gemini and Groq Llama 3.3!"
+        help="Choose the model used for conversational synthesis."
     )
     selected_model_id = MODEL_OPTIONS[selected_label]
     st.session_state.active_model = selected_model_id
 
-    # Model specific key config and guidance
+    # Secure API Key Handling
+    # Priority: 1. Streamlit Cloud Secrets (most secure, never exposed to visitors)
+    #           2. Session state input (password masked, kept only in user's browser session)
+    #           3. Local .env / environment variable
+    active_api_key = None
+
     if "gemini" in selected_model_id:
-        gemini_k = st.text_input(
-            "🔑 Google Gemini API Key",
-            type="password",
-            value=os.getenv("GEMINI_API_KEY", ""),
-            placeholder="AIzaSy...",
-            help="100% Free: 15 req/min and 1,500 req/day with zero billing required.",
+        cloud_secret_key = None
+        try:
+            if hasattr(st, "secrets"):
+                cloud_secret_key = st.secrets.get("GEMINI_API_KEY") or st.secrets.get("GOOGLE_API_KEY")
+        except Exception:
+            cloud_secret_key = None
+
+        if cloud_secret_key:
+            active_api_key = cloud_secret_key
+            st.success("API Key secured via Streamlit Cloud Secrets (hidden and protected from public visitors).")
+        else:
+            session_key = st.text_input(
+                "Gemini API Key",
+                type="password",
+                value=st.session_state.get("session_gemini_key", "") or os.getenv("GEMINI_API_KEY", ""),
+                placeholder="AIzaSy...",
+                help="Your key is password-masked, isolated strictly to your active session, and never exposed to other visitors.",
+            )
+            if session_key:
+                st.session_state.session_gemini_key = session_key.strip()
+                active_api_key = session_key.strip()
+
+        st.caption(
+            "[Get Free Gemini API Key (Google AI Studio)](https://aistudio.google.com/) — 15 req/min free."
         )
-        if gemini_k:
-            os.environ["GEMINI_API_KEY"] = gemini_k
-            os.environ["GOOGLE_API_KEY"] = gemini_k
-        st.markdown(
-            "👉 **[Get Free Gemini API Key (Google AI Studio)](https://aistudio.google.com/)**\n*(No credit card required)*"
-        )
+
     elif "llama" in selected_model_id:
-        groq_k = st.text_input(
-            "🔑 Groq Cloud API Key",
-            type="password",
-            value=os.getenv("GROQ_API_KEY", ""),
-            placeholder="gsk_...",
-            help="Groq Free Tier gives blazing fast inference on LPU hardware.",
-        )
-        if groq_k:
-            os.environ["GROQ_API_KEY"] = groq_k
-        st.markdown(
-            "👉 **[Get Free Groq API Key](https://console.groq.com/keys)**\n*(Free open-source tier, no credit card required)*"
-        )
+        cloud_secret_key = None
+        try:
+            if hasattr(st, "secrets"):
+                cloud_secret_key = st.secrets.get("GROQ_API_KEY")
+        except Exception:
+            cloud_secret_key = None
+
+        if cloud_secret_key:
+            active_api_key = cloud_secret_key
+            st.success("Groq API Key secured via Streamlit Cloud Secrets.")
+        else:
+            session_key = st.text_input(
+                "Groq API Key",
+                type="password",
+                value=st.session_state.get("session_groq_key", "") or os.getenv("GROQ_API_KEY", ""),
+                placeholder="gsk_...",
+                help="Password-masked and isolated strictly to your session.",
+            )
+            if session_key:
+                st.session_state.session_groq_key = session_key.strip()
+                active_api_key = session_key.strip()
+
+        st.caption("[Get Free Groq API Key](https://console.groq.com/keys)")
+
     elif "gpt" in selected_model_id:
-        openai_k = st.text_input(
-            "🔑 OpenAI API Key",
-            type="password",
-            value=os.getenv("OPENAI_API_KEY", ""),
-            placeholder="sk-proj-...",
-        )
-        if openai_k:
-            os.environ["OPENAI_API_KEY"] = openai_k
-        st.markdown("👉 **[OpenAI API Platform](https://platform.openai.com/api-keys)**")
+        cloud_secret_key = None
+        try:
+            if hasattr(st, "secrets"):
+                cloud_secret_key = st.secrets.get("OPENAI_API_KEY")
+        except Exception:
+            cloud_secret_key = None
+
+        if cloud_secret_key:
+            active_api_key = cloud_secret_key
+            st.success("OpenAI API Key secured via Streamlit Cloud Secrets.")
+        else:
+            session_key = st.text_input(
+                "OpenAI API Key",
+                type="password",
+                value=st.session_state.get("session_openai_key", "") or os.getenv("OPENAI_API_KEY", ""),
+                placeholder="sk-proj-...",
+                help="Password-masked and isolated strictly to your session.",
+            )
+            if session_key:
+                st.session_state.session_openai_key = session_key.strip()
+                active_api_key = session_key.strip()
+
+        st.caption("[OpenAI API Platform](https://platform.openai.com/api-keys)")
     else:
-        st.success("🛡️ **Built-in Engine Active**: Running 100% offline rule algorithms & live data feeds with zero keys and $0 cost.", icon="✅")
+        st.info("Built-in Engine: Running offline rule algorithms and live feeds with zero keys.")
 
     st.markdown("---")
-    if st.button("🗑️ Clear Chat History", use_container_width=True):
+    if st.button("Clear Chat History", use_container_width=True):
         st.session_state.messages = []
         st.rerun()
 
@@ -295,9 +340,9 @@ with st.sidebar:
 # ===================== MAIN CONTENT =====================
 
 # Header
-st.markdown("<div class='hero-title'>✨ Aura — Daily Intelligence Copilot</div>", unsafe_allow_html=True)
+st.markdown("<div class='hero-title'>Aura</div>", unsafe_allow_html=True)
 st.markdown(
-    f"<div class='hero-subtitle'>Good day, <b>Baju</b>! Active location: <code>{default_loc}</code></div>",
+    f"<div class='hero-subtitle'>Good day, <b>Baju</b>. Active location: <code>{default_loc}</code></div>",
     unsafe_allow_html=True,
 )
 
@@ -329,33 +374,34 @@ elif btn_full:
 
 if triggered_query:
     st.session_state.messages.append({"role": "user", "content": triggered_query})
-    with st.spinner("✨ Aura is analyzing live data for you, Baju..."):
+    with st.spinner("Analyzing live data..."):
         bot_response = run_aura_query(
             query=triggered_query,
             location_override=default_loc,
             intent_override=triggered_intent,
             model_override=st.session_state.get("active_model"),
+            api_key=active_api_key,
         )
         st.session_state.messages.append({"role": "assistant", "content": bot_response})
 
 # Render Existing Conversation Messages
 if not st.session_state.messages:
-    # Friendly Welcome Banner for Baju
+    # Friendly Minimal Welcome Banner for Baju
     st.markdown(
         f"""
-        > 👋 **Hello Baju!** I'm Aura, your personal lifestyle and daily briefing copilot.
+        > **Hello Baju.** I'm Aura, your personal lifestyle and daily briefing copilot.
         > 
-        > Tap any of the **Quick Daily Briefings** in the sidebar, or ask me directly below!
-        > - *\"What is the best 2-3 hour window for cycling today?\"*
-        > - *\"What should I wear today in Prospect Heights?\"*
-        > - *\"Give me today's 2-3 line news summaries across tech, business, politics, science, and local news!\"*
-        > - *\"What major US festivals or F1 updates can I talk about?\"*
-        > - *\"Remember that I prefer cycling around 2 PM!\"*
+        > Tap any of the quick briefings in the sidebar or ask me directly below:
+        > - *"What is the best 2-3 hour window for cycling today?"*
+        > - *"What should I wear today in Prospect Heights?"*
+        > - *"Give me today's 2-3 line news summaries across tech, business, politics, science, and local news."*
+        > - *"What major US events or sports updates are happening?"*
+        > - *"Can I wear shorts today?"*
         """
     )
 else:
     for idx, msg in enumerate(st.session_state.messages):
-        with st.chat_message(msg["role"], avatar="✨" if msg["role"] == "assistant" else "👤"):
+        with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
             if msg["role"] == "assistant":
                 render_audio_player(msg["content"], key_suffix=f"msg_{idx}")
@@ -364,16 +410,17 @@ else:
 if prompt := st.chat_input("Ask Aura anything, Baju..."):
     # Append & display user message
     st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user", avatar="👤"):
+    with st.chat_message("user"):
         st.markdown(prompt)
 
     # Invoke Aura
-    with st.chat_message("assistant", avatar="✨"):
-        with st.spinner("✨ Aura is thinking..."):
+    with st.chat_message("assistant"):
+        with st.spinner("Aura is thinking..."):
             response_text = run_aura_query(
                 query=prompt,
                 location_override=default_loc,
                 model_override=st.session_state.get("active_model"),
+                api_key=active_api_key,
             )
             st.markdown(response_text)
             render_audio_player(response_text, key_suffix=f"msg_{len(st.session_state.messages)}")

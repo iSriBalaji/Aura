@@ -21,6 +21,7 @@ from weather_agent.geolocation import (
     geocode_location,
 )
 from weather_agent.llm_synthesizer import (
+    synthesize_chat,
     synthesize_events_and_sports,
     synthesize_news_deepdive,
     synthesize_news_digest,
@@ -91,14 +92,11 @@ def route_intent_node(state: WeatherAgentState) -> Dict[str, Any]:
         )
     )
 
-    is_weather = bool(
-        re.search(
-            r"\b(weather|forecast|rain|temperature|wear|clothes|clothing|layers|cycling|bike|biking|ride)\b",
-            last_text,
-            re.IGNORECASE,
-        )
-    )
+    # 3. Weather cues
+    weather_keywords = r"\b(weather|forecast|rain|rainy|raining|temperature|temp|cold|hot|warm|snow|snowing|wind|windy|humidity|sunny|cloudy|storm|jacket|umbrella|wear|clothes|clothing|layer|layers|shorts|coat|cycling|bike|biking|ride|riding|outdoor|bicycle)\b"
+    is_weather = bool(re.search(weather_keywords, last_text, re.IGNORECASE))
 
+    # 4. News cues
     is_news = bool(
         re.search(
             r"\b(news|trending|headlines|happening in the world|talking about|politics|tech news|technology news|science news|business news|business|market|markets|economy|local news)\b",
@@ -142,8 +140,11 @@ def route_intent_node(state: WeatherAgentState) -> Dict[str, Any]:
             "intent": "news_digest",
             "news_categories": requested_cats or cats,
         }
-    else:
+    elif is_weather or (not last_text and state.get("location_query")):
         return {"intent": "weather"}
+    else:
+        # Natural conversation, greeting, follow-up, general advice
+        return {"intent": "chat"}
 
 
 def resolve_location_node(state: WeatherAgentState) -> Dict[str, Any]:
@@ -252,6 +253,7 @@ def synthesize_weather_node(state: WeatherAgentState) -> Dict[str, Any]:
     loc_name = state.get("location_name", "Your Location")
     analysis = state["decision_analysis"]
     model_name = state.get("model_name")
+    api_key = state.get("api_key")
 
     user_query = None
     if state.get("messages"):
@@ -264,6 +266,7 @@ def synthesize_weather_node(state: WeatherAgentState) -> Dict[str, Any]:
         analysis=analysis,
         user_query=user_query,
         model_name=model_name,
+        api_key=api_key,
     )
     return {
         "final_report": final_report,
@@ -276,6 +279,7 @@ def synthesize_news_node(state: WeatherAgentState) -> Dict[str, Any]:
     news_data = state["news_data"]
     loc_name = state.get("location_name") or "Prospect Heights, Illinois"
     model_name = state.get("model_name")
+    api_key = state.get("api_key")
 
     user_query = None
     if state.get("messages"):
@@ -288,6 +292,7 @@ def synthesize_news_node(state: WeatherAgentState) -> Dict[str, Any]:
         location_name=loc_name,
         user_query=user_query,
         model_name=model_name,
+        api_key=api_key,
     )
     return {
         "final_report": final_report,
@@ -300,6 +305,7 @@ def synthesize_deepdive_node(state: WeatherAgentState) -> Dict[str, Any]:
     query = state.get("news_query", "News Story")
     items = state.get("news_deepdive_items", [])
     model_name = state.get("model_name")
+    api_key = state.get("api_key")
 
     user_query = None
     if state.get("messages"):
@@ -312,6 +318,7 @@ def synthesize_deepdive_node(state: WeatherAgentState) -> Dict[str, Any]:
         items,
         user_query=user_query,
         model_name=model_name,
+        api_key=api_key,
     )
     return {
         "final_report": final_report,
@@ -327,6 +334,7 @@ def synthesize_events_node(state: WeatherAgentState) -> Dict[str, Any]:
     city_events = state.get("city_events")
     ref_date = datetime.now()
     model_name = state.get("model_name")
+    api_key = state.get("api_key")
 
     user_query = None
     if state.get("messages"):
@@ -342,6 +350,7 @@ def synthesize_events_node(state: WeatherAgentState) -> Dict[str, Any]:
         user_query=user_query,
         ref_date=ref_date,
         model_name=model_name,
+        api_key=api_key,
     )
     return {
         "final_report": final_report,
@@ -355,14 +364,38 @@ def synthesize_combined_node(state: WeatherAgentState) -> Dict[str, Any]:
     analysis = state["decision_analysis"]
     news_data = state["news_data"]
     model_name = state.get("model_name")
+    api_key = state.get("api_key")
 
-    weather_rep = synthesize_weather_report(location_name=loc_name, analysis=analysis, model_name=model_name)
-    news_rep = synthesize_news_digest(news_data, location_name=loc_name, model_name=model_name)
+    weather_rep = synthesize_weather_report(location_name=loc_name, analysis=analysis, model_name=model_name, api_key=api_key)
+    news_rep = synthesize_news_digest(news_data, location_name=loc_name, model_name=model_name, api_key=api_key)
 
     combined = f"{weather_rep}\n\n---\n\n{news_rep}"
     return {
         "final_report": combined,
         "messages": [AIMessage(content=combined)],
+    }
+
+
+def chat_node(state: WeatherAgentState) -> Dict[str, Any]:
+    """Handle conversational chat with Baju directly and attentively."""
+    user_query = ""
+    if state.get("messages"):
+        last_msg = state["messages"][-1]
+        user_query = last_msg.content if isinstance(last_msg.content, str) else str(last_msg.content)
+
+    loc_name = state.get("location_name") or state.get("location_query")
+    model_name = state.get("model_name")
+    api_key = state.get("api_key")
+
+    resp = synthesize_chat(
+        user_query=user_query,
+        location_name=loc_name,
+        model_name=model_name,
+        api_key=api_key,
+    )
+    return {
+        "final_report": resp,
+        "messages": [AIMessage(content=resp)],
     }
 
 
@@ -374,10 +407,10 @@ def handle_memory_node(state: WeatherAgentState) -> Dict[str, Any]:
         if note:
             add_custom_memory(note)
             resp = (
-                f"# 🧠 Memory Updated for Baju\n\n"
-                f"> **Got it, Baju!** I've locked this into my persistent memory:\n\n"
-                f"📌 *\"{note}\"*\n\n"
-                f"I will keep this in mind across all your future weather, cycling, and news briefings. "
+                f"### Memory Updated for Baju\n\n"
+                f"> **Got it, Baju.** I've locked this into my persistent memory:\n\n"
+                f"*\"{note}\"*\n\n"
+                f"I will keep this in mind across all your future briefings. "
                 f"You can view everything I remember anytime by asking *\"Show my memory\"* or *\"What do you remember about me?\"*."
             )
         else:
@@ -394,8 +427,8 @@ def handle_memory_node(state: WeatherAgentState) -> Dict[str, Any]:
 # Routing Condition Function
 def choose_intent_branch(
     state: WeatherAgentState,
-) -> Literal["weather_branch", "news_branch", "deepdive_branch", "events_branch", "combined_branch", "memory_branch"]:
-    intent = state.get("intent", "weather")
+) -> Literal["weather_branch", "news_branch", "deepdive_branch", "events_branch", "combined_branch", "memory_branch", "chat_branch"]:
+    intent = state.get("intent", "chat")
     if intent in ("memory_view", "memory_store"):
         return "memory_branch"
     elif intent == "events_sports":
@@ -406,7 +439,9 @@ def choose_intent_branch(
         return "news_branch"
     elif intent == "combined":
         return "combined_branch"
-    return "weather_branch"
+    elif intent == "weather":
+        return "weather_branch"
+    return "chat_branch"
 
 
 # Construct StateGraph
@@ -426,6 +461,7 @@ builder.add_node("synthesize_news", synthesize_news_node)
 builder.add_node("synthesize_deepdive", synthesize_deepdive_node)
 builder.add_node("synthesize_events", synthesize_events_node)
 builder.add_node("synthesize_combined", synthesize_combined_node)
+builder.add_node("chat_node", chat_node)
 
 # Add Conditional Edges from Router
 builder.add_edge(START, "route_intent")
@@ -439,6 +475,7 @@ builder.add_conditional_edges(
         "events_branch": "fetch_events_and_sports",
         "combined_branch": "resolve_location",
         "memory_branch": "handle_memory",
+        "chat_branch": "chat_node",
     },
 )
 
@@ -484,6 +521,7 @@ builder.add_edge("fetch_events_and_sports", "synthesize_events")
 builder.add_edge("handle_memory", END)
 
 # Terminal Edges to END
+builder.add_edge("chat_node", END)
 builder.add_edge("synthesize_weather", END)
 builder.add_edge("synthesize_news", END)
 builder.add_edge("synthesize_deepdive", END)

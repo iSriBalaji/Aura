@@ -149,7 +149,7 @@ def get_memory_summary_prompt() -> str:
 
 
 def format_profile_markdown() -> str:
-    """Return a beautifully structured Markdown presentation of Baju's profile."""
+    """Return a clean, minimal Markdown presentation of Baju's profile."""
     p = load_profile()
     usr = p.get("user", {})
     sports = p.get("sports", {})
@@ -158,26 +158,26 @@ def format_profile_markdown() -> str:
     notes = p.get("custom_notes", [])
 
     lines = [
-        "# 🧠 Aura Memory & Personal Profile for Baju",
-        "> **Aura's Persistent Brain:** All preferences, cycling thresholds, and sports teams are stored locally with zero external API fees.\n",
-        "## 👤 Personal Identity",
+        "### Aura Memory & Personal Profile for Baju",
+        "> Preferences, cycling thresholds, and sports teams stored locally.\n",
+        "#### Personal Identity",
         f"- **Name:** {usr.get('full_name')} (**{usr.get('nickname')}**)",
         f"- **Home Location:** {usr.get('home_location')} ({usr.get('timezone')})",
         f"- **Preferred Units:** {usr.get('units')}\n",
-        "## 🏎️ Favorite Sports & Teams",
+        "#### Favorite Sports & Teams",
         f"- **Formula 1 Teams:** {', '.join(sports.get('f1_teams', []))}",
         f"- **Favorite Drivers:** {', '.join(sports.get('f1_drivers', []))}",
         f"- **NFL:** {', '.join(sports.get('nfl_teams', []))}",
         f"- **Cricket:** {', '.join(sports.get('cricket_teams', []))}\n",
-        "## 🚴‍♂️ Cycling Profile & Thresholds",
+        "#### Cycling Profile & Thresholds",
         f"- **Bike Style:** {cyc.get('bike_type')}",
         f"- **Cold Tolerance:** Min {cyc.get('min_comfortable_temp_f')}°F (Apparent temp)",
         f"- **Wind Tolerance:** Up to {cyc.get('max_acceptable_wind_mph')} mph (Gusts < {cyc.get('max_acceptable_gusts_mph')} mph)",
         f"- **Ideal Ride Window:** {cyc.get('preferred_ride_window_hours')} hours ({cyc.get('ideal_ride_time_of_day')})\n",
-        "## 📰 News & Focus Areas",
+        "#### News & Focus Areas",
         f"- **Topics:** {', '.join(news.get('topics', []))}",
         f"- **Format:** {news.get('digest_style')}\n",
-        "## 📝 Stored Custom Memories",
+        "#### Stored Custom Memories",
     ]
 
     if notes:
@@ -205,7 +205,7 @@ def detect_memory_intent(text: str) -> Optional[Dict[str, Any]]:
 
     # Store memory
     store_patterns = [
-        r"^(?:aura[, ]+)?remember\s+(?:that\s+)?(.+)$",
+        r"^(?:aura[, ]+)?(?:can you\s+)?(?:please\s+)?remember\s+(?:that\s+)?(.+)$",
         r"^(?:please\s+)?save\s+to\s+memory[:\s]+(.+)$",
         r"^(?:please\s+)?keep\s+in\s+mind\s+(?:that\s+)?(.+)$",
         r"^(?:note\s+down|take\s+note)[:\s]+(?:that\s+)?(.+)$",
