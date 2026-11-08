@@ -79,7 +79,12 @@ st.markdown(
 )
 
 
-def run_aura_query(query: str, location_override: str = None, intent_override: str = None):
+def run_aura_query(
+    query: str,
+    location_override: str = None,
+    intent_override: str = None,
+    model_override: str = None,
+):
     """Invoke the LangGraph Aura agent and return markdown response."""
     state_input = {}
     
@@ -88,6 +93,9 @@ def run_aura_query(query: str, location_override: str = None, intent_override: s
 
     if intent_override:
         state_input["intent"] = intent_override
+
+    if model_override:
+        state_input["model_name"] = model_override
 
     state_input["messages"] = [HumanMessage(content=query)]
 
@@ -215,15 +223,70 @@ with st.sidebar:
                         st.rerun()
 
     st.markdown("---")
-    with st.expander("⚙️ Optional Settings & Keys"):
-        st.caption("Aura works 100% free without keys using smart deterministic engines. Add a key below only if you want generative AI synthesis.")
-        gemini_k = st.text_input("Gemini API Key", type="password", value=os.getenv("GEMINI_API_KEY", ""))
-        openai_k = st.text_input("OpenAI API Key", type="password", value=os.getenv("OPENAI_API_KEY", ""))
+    st.markdown("#### 🤖 AI Engine & Model Switcher")
+
+    MODEL_OPTIONS = {
+        "⚡ Google Gemini 2.5 Flash (Free Tier • Recommended)": "gemini-2.5-flash",
+        "🚀 Google Gemini 2.5 Flash Lite (Ultra-Fast • Free Tier)": "gemini-2.5-flash-lite",
+        "✨ Google Gemini 1.5 Flash (Free Tier)": "gemini-1.5-flash",
+        "🧠 Google Gemini 1.5 Pro (Deep Reasoning • Free Tier)": "gemini-1.5-pro",
+        "🦙 Groq Llama 3.3 70B (Ultra-Fast Open Source • Free Tier)": "llama-3.3-70b-versatile",
+        "⚡ Groq Llama 3.1 8B (Instant Open Source • Free Tier)": "llama-3.1-8b-instant",
+        "🟢 OpenAI GPT-4o-mini (Paid Key)": "gpt-4o-mini",
+        "🛡️ Built-in $0 Engine (No API Key • Offline & Free)": "builtin",
+    }
+
+    selected_label = st.selectbox(
+        "Active Intelligence Model",
+        options=list(MODEL_OPTIONS.keys()),
+        index=0,
+        help="Choose the model used for synthesis. Free options include Google Gemini and Groq Llama 3.3!"
+    )
+    selected_model_id = MODEL_OPTIONS[selected_label]
+    st.session_state.active_model = selected_model_id
+
+    # Model specific key config and guidance
+    if "gemini" in selected_model_id:
+        gemini_k = st.text_input(
+            "🔑 Google Gemini API Key",
+            type="password",
+            value=os.getenv("GEMINI_API_KEY", ""),
+            placeholder="AIzaSy...",
+            help="100% Free: 15 req/min and 1,500 req/day with zero billing required.",
+        )
         if gemini_k:
             os.environ["GEMINI_API_KEY"] = gemini_k
+            os.environ["GOOGLE_API_KEY"] = gemini_k
+        st.markdown(
+            "👉 **[Get Free Gemini API Key (Google AI Studio)](https://aistudio.google.com/)**\n*(No credit card required)*"
+        )
+    elif "llama" in selected_model_id:
+        groq_k = st.text_input(
+            "🔑 Groq Cloud API Key",
+            type="password",
+            value=os.getenv("GROQ_API_KEY", ""),
+            placeholder="gsk_...",
+            help="Groq Free Tier gives blazing fast inference on LPU hardware.",
+        )
+        if groq_k:
+            os.environ["GROQ_API_KEY"] = groq_k
+        st.markdown(
+            "👉 **[Get Free Groq API Key](https://console.groq.com/keys)**\n*(Free open-source tier, no credit card required)*"
+        )
+    elif "gpt" in selected_model_id:
+        openai_k = st.text_input(
+            "🔑 OpenAI API Key",
+            type="password",
+            value=os.getenv("OPENAI_API_KEY", ""),
+            placeholder="sk-proj-...",
+        )
         if openai_k:
             os.environ["OPENAI_API_KEY"] = openai_k
+        st.markdown("👉 **[OpenAI API Platform](https://platform.openai.com/api-keys)**")
+    else:
+        st.success("🛡️ **Built-in Engine Active**: Running 100% offline rule algorithms & live data feeds with zero keys and $0 cost.", icon="✅")
 
+    st.markdown("---")
     if st.button("🗑️ Clear Chat History", use_container_width=True):
         st.session_state.messages = []
         st.rerun()
@@ -271,6 +334,7 @@ if triggered_query:
             query=triggered_query,
             location_override=default_loc,
             intent_override=triggered_intent,
+            model_override=st.session_state.get("active_model"),
         )
         st.session_state.messages.append({"role": "assistant", "content": bot_response})
 
@@ -306,7 +370,11 @@ if prompt := st.chat_input("Ask Aura anything, Baju..."):
     # Invoke Aura
     with st.chat_message("assistant", avatar="✨"):
         with st.spinner("✨ Aura is thinking..."):
-            response_text = run_aura_query(query=prompt, location_override=default_loc)
+            response_text = run_aura_query(
+                query=prompt,
+                location_override=default_loc,
+                model_override=st.session_state.get("active_model"),
+            )
             st.markdown(response_text)
             render_audio_player(response_text, key_suffix=f"msg_{len(st.session_state.messages)}")
 

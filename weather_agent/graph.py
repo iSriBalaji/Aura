@@ -251,6 +251,7 @@ def synthesize_weather_node(state: WeatherAgentState) -> Dict[str, Any]:
     """Generate final weather, clothing & cycling report."""
     loc_name = state.get("location_name", "Your Location")
     analysis = state["decision_analysis"]
+    model_name = state.get("model_name")
 
     user_query = None
     if state.get("messages"):
@@ -262,6 +263,7 @@ def synthesize_weather_node(state: WeatherAgentState) -> Dict[str, Any]:
         location_name=loc_name,
         analysis=analysis,
         user_query=user_query,
+        model_name=model_name,
     )
     return {
         "final_report": final_report,
@@ -273,6 +275,7 @@ def synthesize_news_node(state: WeatherAgentState) -> Dict[str, Any]:
     """Generate trending news digest report with structured 2-3 line summaries."""
     news_data = state["news_data"]
     loc_name = state.get("location_name") or "Prospect Heights, Illinois"
+    model_name = state.get("model_name")
 
     user_query = None
     if state.get("messages"):
@@ -280,7 +283,12 @@ def synthesize_news_node(state: WeatherAgentState) -> Dict[str, Any]:
         if isinstance(last_msg, HumanMessage) or getattr(last_msg, "type", None) == "human":
             user_query = last_msg.content if isinstance(last_msg.content, str) else str(last_msg.content)
 
-    final_report = synthesize_news_digest(news_data, location_name=loc_name, user_query=user_query)
+    final_report = synthesize_news_digest(
+        news_data,
+        location_name=loc_name,
+        user_query=user_query,
+        model_name=model_name,
+    )
     return {
         "final_report": final_report,
         "messages": [AIMessage(content=final_report)],
@@ -291,6 +299,7 @@ def synthesize_deepdive_node(state: WeatherAgentState) -> Dict[str, Any]:
     """Generate in-depth news follow-up report."""
     query = state.get("news_query", "News Story")
     items = state.get("news_deepdive_items", [])
+    model_name = state.get("model_name")
 
     user_query = None
     if state.get("messages"):
@@ -298,7 +307,12 @@ def synthesize_deepdive_node(state: WeatherAgentState) -> Dict[str, Any]:
         if isinstance(last_msg, HumanMessage) or getattr(last_msg, "type", None) == "human":
             user_query = last_msg.content if isinstance(last_msg.content, str) else str(last_msg.content)
 
-    final_report = synthesize_news_deepdive(query, items, user_query=user_query)
+    final_report = synthesize_news_deepdive(
+        query,
+        items,
+        user_query=user_query,
+        model_name=model_name,
+    )
     return {
         "final_report": final_report,
         "messages": [AIMessage(content=final_report)],
@@ -312,6 +326,7 @@ def synthesize_events_node(state: WeatherAgentState) -> Dict[str, Any]:
     city_name = state.get("location_query")
     city_events = state.get("city_events")
     ref_date = datetime.now()
+    model_name = state.get("model_name")
 
     user_query = None
     if state.get("messages"):
@@ -326,6 +341,7 @@ def synthesize_events_node(state: WeatherAgentState) -> Dict[str, Any]:
         city_events=city_events,
         user_query=user_query,
         ref_date=ref_date,
+        model_name=model_name,
     )
     return {
         "final_report": final_report,
@@ -338,9 +354,10 @@ def synthesize_combined_node(state: WeatherAgentState) -> Dict[str, Any]:
     loc_name = state.get("location_name", "Prospect Heights, Illinois")
     analysis = state["decision_analysis"]
     news_data = state["news_data"]
+    model_name = state.get("model_name")
 
-    weather_rep = synthesize_weather_report(location_name=loc_name, analysis=analysis)
-    news_rep = synthesize_news_digest(news_data, location_name=loc_name)
+    weather_rep = synthesize_weather_report(location_name=loc_name, analysis=analysis, model_name=model_name)
+    news_rep = synthesize_news_digest(news_data, location_name=loc_name, model_name=model_name)
 
     combined = f"{weather_rep}\n\n---\n\n{news_rep}"
     return {

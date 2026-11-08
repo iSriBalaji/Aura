@@ -38,5 +38,8 @@ class WeatherAgentState(TypedDict, total=False):
     city_events: Optional[List[Dict[str, Any]]]  # Location-specific events/festivals
     sports_filter: Optional[List[str]]          # Specific sports requested (e.g. ['f1', 'cricket'])
 
+    # Model selection & optional overrides
+    model_name: Optional[str]
+
     # Final synthesized user-facing markdown response
     final_report: Optional[str]

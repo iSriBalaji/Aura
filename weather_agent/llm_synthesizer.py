@@ -21,20 +21,88 @@ from weather_agent.news_service import (
 load_dotenv()
 
 
-def get_llm():
-    """Instantiate a cost-effective LLM based on environment variables."""
+def get_llm(model_override: Optional[str] = None):
+    """Instantiate a cost-effective LLM based on user selection or environment variables.
+    
+    Supports:
+    - Built-in Deterministic Engine ($0, no keys)
+    - Google Gemini (Free tier with Google AI Studio key): gemini-2.5-flash, gemini-2.5-flash-lite, gemini-1.5-flash, gemini-1.5-pro
+    - Groq Cloud (Free tier with Groq key): llama-3.3-70b-versatile, llama-3.1-8b-instant
+    - OpenAI: gpt-4o-mini, gpt-4o
+    """
     google_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    groq_key = os.getenv("GROQ_API_KEY")
     openai_key = os.getenv("OPENAI_API_KEY")
-    model_name = os.getenv("LLM_MODEL")
+    target_model = model_override or os.getenv("LLM_MODEL")
 
+    if target_model:
+        m_lower = target_model.strip().lower()
+        if m_lower in ("builtin", "built-in", "built-in $0 engine", "offline", "none"):
+            return None
+
+        # Google Gemini models
+        if "gemini" in m_lower:
+            if google_key:
+                try:
+                    from langchain_google_genai import ChatGoogleGenerativeAI
+                    return ChatGoogleGenerativeAI(
+                        model=target_model,
+                        temperature=0.3,
+                        google_api_key=google_key,
+                    )
+                except Exception:
+                    pass
+            return None
+
+        # Groq models (Llama 3.3, Llama 3.1)
+        if "llama" in m_lower or "groq" in m_lower or "mixtral" in m_lower:
+            if groq_key:
+                try:
+                    from langchain_openai import ChatOpenAI
+                    return ChatOpenAI(
+                        model=target_model,
+                        temperature=0.3,
+                        api_key=groq_key,
+                        base_url="https://api.groq.com/openai/v1",
+                    )
+                except Exception:
+                    pass
+            return None
+
+        # OpenAI models
+        if "gpt" in m_lower or "o1" in m_lower or "o3" in m_lower:
+            if openai_key:
+                try:
+                    from langchain_openai import ChatOpenAI
+                    return ChatOpenAI(
+                        model=target_model,
+                        temperature=0.3,
+                        api_key=openai_key,
+                    )
+                except Exception:
+                    pass
+            return None
+
+    # Fallback auto-detection if no specific model requested
     if google_key:
         try:
             from langchain_google_genai import ChatGoogleGenerativeAI
-            m = model_name or "gemini-2.5-flash"
             return ChatGoogleGenerativeAI(
-                model=m,
+                model="gemini-2.5-flash",
                 temperature=0.3,
                 google_api_key=google_key,
+            )
+        except Exception:
+            pass
+
+    if groq_key:
+        try:
+            from langchain_openai import ChatOpenAI
+            return ChatOpenAI(
+                model="llama-3.3-70b-versatile",
+                temperature=0.3,
+                api_key=groq_key,
+                base_url="https://api.groq.com/openai/v1",
             )
         except Exception:
             pass
@@ -42,9 +110,8 @@ def get_llm():
     if openai_key:
         try:
             from langchain_openai import ChatOpenAI
-            m = model_name or "gpt-4o-mini"
             return ChatOpenAI(
-                model=m,
+                model="gpt-4o-mini",
                 temperature=0.3,
                 api_key=openai_key,
             )
@@ -160,9 +227,10 @@ def synthesize_weather_report(
     location_name: str,
     analysis: Dict[str, Any],
     user_query: Optional[str] = None,
+    model_name: Optional[str] = None,
 ) -> str:
     """Synthesize weather, wardrobe, and cycling analysis using LLM if available."""
-    llm = get_llm()
+    llm = get_llm(model_override=model_name)
     if llm is None:
         return fallback_format_report(location_name, analysis)
 
@@ -207,9 +275,10 @@ def synthesize_news_digest(
     news_data: Dict[str, List[Dict[str, Any]]],
     location_name: str = "Prospect Heights, Illinois",
     user_query: Optional[str] = None,
+    model_name: Optional[str] = None,
 ) -> str:
     """Synthesize trending news into exact 2-3 line reliable summaries across all 6 essential categories."""
-    llm = get_llm()
+    llm = get_llm(model_override=model_name)
     if llm is None:
         return fallback_format_news_digest(news_data, location_name=location_name)
 
@@ -258,9 +327,10 @@ def synthesize_news_deepdive(
     query: str,
     news_items: List[Dict[str, Any]],
     user_query: Optional[str] = None,
+    model_name: Optional[str] = None,
 ) -> str:
     """Synthesize in-depth background context for a specific news item when asked by the user."""
-    llm = get_llm()
+    llm = get_llm(model_override=model_name)
     if llm is None:
         return fallback_format_news_deepdive(query, news_items)
 
@@ -298,12 +368,13 @@ def synthesize_events_and_sports(
     city_events: Optional[List[Dict[str, Any]]] = None,
     user_query: Optional[str] = None,
     ref_date: Optional[datetime] = None,
+    model_name: Optional[str] = None,
 ) -> str:
     """Synthesize US & global events, sports highlights, and conversation starters anchored strictly to today ±17 days."""
     ref = ref_date or datetime.now()
     win = get_current_window(ref_date=ref, window_days=17)
 
-    llm = get_llm()
+    llm = get_llm(model_override=model_name)
     if llm is None:
         return fallback_format_events_and_sports(
             us_events=us_events,
