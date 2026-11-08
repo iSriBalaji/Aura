@@ -4,10 +4,14 @@ structured markdown fallbacks if no LLM credentials are set.
 """
 
 import os
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 from dotenv import load_dotenv
 
-from weather_agent.events_service import fallback_format_events_and_sports
+from weather_agent.events_service import (
+    fallback_format_events_and_sports,
+    get_current_window,
+)
 from weather_agent.news_service import (
     fallback_format_news_deepdive,
     fallback_format_news_digest,
@@ -266,8 +270,12 @@ def synthesize_events_and_sports(
     city_name: Optional[str] = None,
     city_events: Optional[List[Dict[str, Any]]] = None,
     user_query: Optional[str] = None,
+    ref_date: Optional[datetime] = None,
 ) -> str:
-    """Synthesize US & global events, sports highlights, and conversation starters."""
+    """Synthesize US & global events, sports highlights, and conversation starters anchored strictly to today ±17 days."""
+    ref = ref_date or datetime.now()
+    win = get_current_window(ref_date=ref, window_days=17)
+
     llm = get_llm()
     if llm is None:
         return fallback_format_events_and_sports(
@@ -275,30 +283,38 @@ def synthesize_events_and_sports(
             sports=sports,
             city_name=city_name,
             city_events=city_events,
+            ref_date=ref,
         )
 
     prompt = f"""You are Aura, the dedicated personal AI advisor to Baju (whose full name is Sri Balaji).
 Always address him warmly and directly as Baju.
-Baju is asking about major events happening in the US (popular conferences, music festivals, major sports, or city-specific events) to talk about with others and start engaging conversations.
+
+CRITICAL DATE AND TEMPORAL CONSTRAINT:
+Today's exact date is: {win['today_str']}
+Active temporal window: Strictly past week, today, or next week (±17 days: {win['window_str']}).
+Baju specifically requires that all events, conferences, sports fixtures, and festivals MUST take place or have taken place strictly within this active ±17-day window.
+- Under NO circumstances include events from past months, past years, or distant future dates.
+- For every event, conference, and sports matchup, explicitly specify its exact date (e.g. "{ref.strftime('%b %d')}" or upcoming "{win['window_str']}").
+- Ensure all talking points are fresh, timely, and conversation-ready for today.
 
 User Request: {user_query or 'Major US events, conferences, music festivals, and sports updates'}
 City Focus: {city_name or 'General US / Popular Globally'}
 
-Data Collected:
+Data Collected (Within ±17 Days):
 - City Events: {city_events if city_name else 'None'}
 - US Events (Conferences, Festivals, Entertainment): {us_events}
 - Sports Updates (American Football, Formula 1, Cricket, General): {sports}
 
 Instructions:
-1. Greet Baju warmly.
+1. Greet Baju warmly and explicitly note today's date ({win['today_str']}) and the active ±17-day window ({win['window_str']}).
 2. Structure into clean, scannable sections:
-   - 📍 **City Happenings** (if a city was mentioned: top festivals, concerts, or local buzz).
-   - 🎪 **Major US Events** (Conferences/Expos, Music Festivals, Major Entertainment).
-   - 🏈 **Sports Pulse** (American Football / NFL / College highlights, 🏎️ Formula 1 Grand Prix status, 🏏 Cricket international matches).
+   - 📍 **City Happenings** (if a city was mentioned: top festivals, concerts, or local buzz with specific dates).
+   - 🎪 **Major US Events** (Conferences/Expos, Music Festivals, Major Entertainment occurring in this ±17-day window with dates).
+   - 🏈 **Sports Pulse** (American Football / NFL / College highlights, 🏎️ Formula 1 Grand Prix status, 🏏 Cricket international matches with dates).
 3. For each key event or sport:
-   - Provide a short, factual 1-2 sentence breakdown of what happened or what's coming up.
-   - Include a natural "💬 **Conversation Starter for Baju**" quote he can naturally say in conversation with friends, colleagues, or clients (e.g., "Did you see how Norris took pole in the wet qualifying?").
-4. Keep the tone vibrant, practical, and conversational.
+   - Provide a short, factual 1-2 sentence breakdown of what happened or what's coming up within this window.
+   - Include a natural "💬 **Conversation Starter for Baju**" quote he can naturally say in conversation with friends, colleagues, or clients.
+4. Keep the tone vibrant, practical, timely, and conversational.
 """
     try:
         response = llm.invoke(prompt)
@@ -313,4 +329,5 @@ Instructions:
         sports=sports,
         city_name=city_name,
         city_events=city_events,
+        ref_date=ref,
     )

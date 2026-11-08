@@ -165,7 +165,7 @@ elif btn_news:
     triggered_query = f"Give me today's executive news digest with 2-3 line summaries across General & World, Technology, Politics, Business, Science, and Local news for {default_loc}."
     triggered_intent = "news_digest"
 elif btn_events:
-    triggered_query = f"What major events, conferences, festivals, and sports updates are happening in the US or in {default_loc}?"
+    triggered_query = f"What major events, conferences, festivals, and sports updates are happening right now (past week, today, or next week / ±17 days) in the US or in {default_loc}?"
     triggered_intent = "events_sports"
 elif btn_full:
     triggered_query = f"Give me the full 7-day weather outlook, layer decisions, and weekly cycling planner for {default_loc}."

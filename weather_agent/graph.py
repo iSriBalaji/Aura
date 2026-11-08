@@ -4,6 +4,7 @@ news follow-ups, and US/global events & sports briefings.
 """
 
 import re
+from datetime import datetime
 from typing import Any, Dict, List, Literal
 from langchain_core.messages import AIMessage, HumanMessage
 from langgraph.graph import END, START, StateGraph
@@ -212,15 +213,16 @@ def fetch_news_deepdive_node(state: WeatherAgentState) -> Dict[str, Any]:
 
 
 def fetch_events_and_sports_node(state: WeatherAgentState) -> Dict[str, Any]:
-    """Fetch major US events, sports updates (football, F1, cricket), and city events."""
+    """Fetch major US events, sports updates (football, F1, cricket), and city events strictly within ±17 days of today."""
+    ref_date = datetime.now()
     sports_filter = state.get("sports_filter") or ["football", "f1", "cricket", "general_sports"]
-    us_events = fetch_major_us_events()
-    sports = fetch_sports_briefing(sports_filter)
+    us_events = fetch_major_us_events(ref_date=ref_date, window_days=17)
+    sports = fetch_sports_briefing(sports_filter, ref_date=ref_date, window_days=17)
 
     city_name = state.get("location_query")
     city_events = []
     if city_name:
-        city_events = fetch_city_events(city_name)
+        city_events = fetch_city_events(city_name, ref_date=ref_date, window_days=17)
 
     return {
         "events_data": us_events,
@@ -293,6 +295,7 @@ def synthesize_events_node(state: WeatherAgentState) -> Dict[str, Any]:
     sports = state.get("sports_data")
     city_name = state.get("location_query")
     city_events = state.get("city_events")
+    ref_date = datetime.now()
 
     user_query = None
     if state.get("messages"):
@@ -306,6 +309,7 @@ def synthesize_events_node(state: WeatherAgentState) -> Dict[str, Any]:
         city_name=city_name,
         city_events=city_events,
         user_query=user_query,
+        ref_date=ref_date,
     )
     return {
         "final_report": final_report,
