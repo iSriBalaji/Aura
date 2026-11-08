@@ -60,7 +60,8 @@ def fallback_format_report(
     daily_list = analysis["daily"]
 
     lines = []
-    lines.append(f"# 🌤️ Weather, Clothing & Cycling Decision Report")
+    lines.append(f"# 🌤️ Aura Daily Briefing for Baju")
+    lines.append(f"> **Hello Baju!** Here is your personalized weather, wardrobe layering, and cycling assessment.\n")
     lines.append(f"**📍 Location:** {location_name}\n")
 
     # Current Live Status
@@ -142,8 +143,9 @@ def synthesize_weather_report(
     if llm is None:
         return fallback_format_report(location_name, analysis)
 
-    prompt = f"""You are an elite, practical Weather, Wardrobe, and Cycling Decision Advisor.
-Analyze the structured live weather, clothing calculations, and cycling suitability metrics below, then produce an engaging, clear, and actionable Markdown report.
+    prompt = f"""You are Aura, the dedicated personal AI advisor to Baju (whose full name is Sri Balaji).
+Always address him warmly and directly as Baju.
+Analyze the structured live weather, clothing calculations, and cycling suitability metrics below, then produce an engaging, clear, and actionable Markdown report tailored for Baju.
 
 Target Location: {location_name}
 User Query: {user_query or 'General daily and weekly forecast and advice'}
@@ -154,13 +156,13 @@ Structured Decision Data:
 - Cycling Rankings: {analysis['best_cycling_rankings']}
 
 Structure your response with:
-1. 🌤️ Header & Location Summary with live metrics (Temp, Feels Like, Wind, Conditions).
+1. 🌤️ Warm personal greeting to Baju, followed by Header & Location Summary with live metrics (Temp, Feels Like, Wind, Conditions).
 2. 👕 Today's Wardrobe & Layering Strategy (Exact layers: Base, Mid, Outer shell, Bottoms, Footwear, and Accessories).
 3. 🚴‍♂️ Today's Cycling Decision (Score /100, Rating Badge, kit, road/wind tips).
 4. 📅 7-Day Planning Table (Date, Weather, Temp C/F, Rain chance, Layers needed, Cycling score & status).
 5. 🏆 Weekly Decision Takeaways (Best cycling day vs day to avoid).
 
-Be direct, highly organized, and practical.
+Be direct, highly organized, warm, and practical.
 """
     try:
         response = llm.invoke(prompt)
@@ -182,9 +184,10 @@ def synthesize_news_digest(
     if llm is None:
         return fallback_format_news_digest(news_data)
 
-    prompt = f"""You are an elite news curator and conversational briefing advisor.
+    prompt = f"""You are Aura, the dedicated personal AI advisor to Baju (whose full name is Sri Balaji).
+Always address him warmly and directly as Baju.
 Review the live trending news stories below across Technology, Politics, Science, and World events.
-Produce an organized, engaging Markdown briefing with SHORT, RELIABLE talking points that people can easily discuss with others.
+Produce an organized, engaging Markdown briefing with SHORT, RELIABLE talking points that Baju can easily discuss with friends, colleagues, or clients.
 
 User Query: {user_query or 'Trending important news past week or today'}
 
@@ -192,16 +195,17 @@ Raw News Feed Data:
 {news_data}
 
 Instructions:
-1. Organize by sections:
+1. Greet Baju warmly.
+2. Organize by sections:
    - 💻 **Technology & AI**
    - 🏛️ **Politics & Policy**
    - 🔬 **Science & Space / Discovery**
    - 🌍 **General & World Events**
-2. For each key story:
+3. For each key story:
    - Provide a bold headline with source.
    - 1-2 bullet points explaining: What happened and Why it matters.
    - Keep points short, factual, and conversation-ready.
-3. Add a tip at the end for follow-up details.
+4. Add a tip at the end reminding Baju he can ask for a deep dive on any specific headline.
 """
     try:
         response = llm.invoke(prompt)
@@ -224,8 +228,9 @@ def synthesize_news_deepdive(
     if llm is None:
         return fallback_format_news_deepdive(query, news_items)
 
-    prompt = f"""You are an in-depth investigative news analyst and conversational advisor.
-The user wants additional context and background on a specific news topic from the recent trending headlines.
+    prompt = f"""You are Aura, the dedicated personal AI advisor to Baju (whose full name is Sri Balaji).
+Always address him warmly and directly as Baju.
+Baju wants additional context and background on a specific news topic from the recent trending headlines.
 
 Topic: {query}
 User Request: {user_query}
@@ -234,10 +239,10 @@ Recent News Articles / Coverage:
 {news_items}
 
 Please synthesize a comprehensive, easy-to-digest deep-dive briefing structured with:
-1. 📌 **Executive Overview**: What is the core development right now?
+1. Greet Baju and give a 📌 **Executive Overview**: What is the core development right now?
 2. 🔍 **Key Background & Context**: What led to this event over recent days or weeks?
 3. 💬 **Why It Matters & Key Perspectives**: What are the major impacts, controversies, or points of view?
-4. 🗣️ **Conversational Talking Points**: 2-3 memorable bullet points to mention when discussing this topic.
+4. 🗣️ **Conversational Talking Points for Baju**: 2-3 memorable bullet points he can mention when discussing this topic with others.
 """
     try:
         response = llm.invoke(prompt)
@@ -267,8 +272,9 @@ def synthesize_events_and_sports(
             city_events=city_events,
         )
 
-    prompt = f"""You are a master social conversation advisor and sports/events correspondent.
-The user is asking about major events happening in the US (popular conferences, music festivals, major sports, or city-specific events) to talk about with others and start engaging conversations.
+    prompt = f"""You are Aura, the dedicated personal AI advisor to Baju (whose full name is Sri Balaji).
+Always address him warmly and directly as Baju.
+Baju is asking about major events happening in the US (popular conferences, music festivals, major sports, or city-specific events) to talk about with others and start engaging conversations.
 
 User Request: {user_query or 'Major US events, conferences, music festivals, and sports updates'}
 City Focus: {city_name or 'General US / Popular Globally'}
@@ -279,14 +285,15 @@ Data Collected:
 - Sports Updates (American Football, Formula 1, Cricket, General): {sports}
 
 Instructions:
-1. Structure into clean, scannable sections:
+1. Greet Baju warmly.
+2. Structure into clean, scannable sections:
    - 📍 **City Happenings** (if a city was mentioned: top festivals, concerts, or local buzz).
    - 🎪 **Major US Events** (Conferences/Expos, Music Festivals, Major Entertainment).
    - 🏈 **Sports Pulse** (American Football / NFL / College highlights, 🏎️ Formula 1 Grand Prix status, 🏏 Cricket international matches).
-2. For each key event or sport:
+3. For each key event or sport:
    - Provide a short, factual 1-2 sentence breakdown of what happened or what's coming up.
-   - Include a natural "💬 **Conversation Starter**" quote the user can literally say in conversation with friends or coworkers (e.g., "Did you see how Norris took pole in the wet qualifying?").
-3. Keep the tone vibrant, practical, and conversational.
+   - Include a natural "💬 **Conversation Starter for Baju**" quote he can naturally say in conversation with friends, colleagues, or clients (e.g., "Did you see how Norris took pole in the wet qualifying?").
+4. Keep the tone vibrant, practical, and conversational.
 """
     try:
         response = llm.invoke(prompt)

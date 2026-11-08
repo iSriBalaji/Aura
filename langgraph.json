@@ -2,6 +2,7 @@
   "python_version": "3.11",
   "dependencies": ["."],
   "graphs": {
+    "aura": "./weather_agent/graph.py:graph",
     "weather_agent": "./weather_agent/graph.py:graph"
   },
   "env": ".env"

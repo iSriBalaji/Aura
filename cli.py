@@ -19,7 +19,7 @@ def run_agent(
     sports: bool = False,
 ):
     """Invoke the LangGraph agent with given parameters."""
-    print("⏳ Invoking LangGraph Advisor...")
+    print("⏳ Aura is preparing your briefing, Baju...")
     initial_state = {}
 
     if deepdive:
@@ -65,34 +65,36 @@ def run_agent(
 
 def interactive_mode():
     """Run an interactive prompt loop supporting weather, news, events, and sports."""
-    print("\n🌤️ 🚴 📰 🎟️ Welcome to the Weather, Activity, Events & Sports Advisor (LangGraph)!")
-    print("You can ask about:")
+    print("\n✨ Aura — Personal AI Advisor for Baju (Sri Balaji) ✨")
+    print("----------------------------------------------------------------------")
+    print("Hello Baju! I'm Aura, your personal lifestyle & intelligence copilot.")
+    print("Ask me anything about:")
     print("  • Weather & Cycling: 'Weather and clothes in Prospect Heights', 'Can I cycle in Seattle?'")
     print("  • Trending News: 'What is trending in tech and politics today?', 'Science news'")
     print("  • US Events & Festivals: 'What major events are happening in the US?', 'Conferences this week'")
     print("  • City-Specific Events: 'What events are happening in Chicago?', 'Austin events'")
-    print("  • Sports Updates: 'F1 race highlights', 'Cricket scores', 'NFL American football updates'")
-    print("  • News Deep-Dive: 'Tell me more about NASA Artemis', 'Details on [story]'")
+    print("  • Sports Updates: 'F1 race highlights', 'Cricket scores', 'NFL updates'")
+    print("  • News Deep-Dive: 'Tell me more about [topic]'")
     print("Type 'exit' or 'quit' to stop.\n")
 
     while True:
         try:
-            user_input = input("🌦️ / 📰 / 🎟️ Your query > ").strip()
+            user_input = input("✨ Aura for Baju > ").strip()
             if not user_input:
                 continue
             if user_input.lower() in ("exit", "quit", "q"):
-                print("Goodbye!")
+                print("Goodbye Baju! Have a productive and wonderful day.")
                 break
 
             run_agent(message=user_input)
         except (KeyboardInterrupt, EOFError):
-            print("\nExiting. Stay informed and have great conversations!")
+            print("\nExiting. Take care Baju!")
             break
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Reliable & Cost-Effective LangGraph Weather, Activity, Events & Sports Advisor."
+        description="Aura — Personal AI Weather, Wardrobe, Cycling, News & Events Advisor for Baju."
     )
     parser.add_argument(
         "-l", "--location", type=str, help="Specific location name or city (e.g. 'Austin, TX', 'Chicago', 'London')"
