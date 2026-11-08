@@ -1,10 +1,14 @@
-# 🌤️ Weather, Clothing & Cycling Advisor Agent (LangGraph)
+# ✨ Aura — Personal AI Lifestyle & Intelligence Copilot (LangGraph)
 
-A reliable, production-ready, and cost-effective AI agent built with **LangGraph**. It fetches live, real-time weather and a 7-day forecast to make critical daily and weekly decisions:
-1. **Wardrobe & Layering**: Computes exact layer counts (1-4) and garment breakdowns (base, mid, outer, bottoms, footwear, weather accessories).
-2. **Cycling Suitability**: Evaluates road conditions, aerodynamic drag/wind, temperature comfort, and severe weather risks to calculate a 0-100 Cycling Score, required cycling kit, tire pressure tweaks, and safety cautions.
-3. **Location Intelligence**: Automatically detects current device location via IP geolocation fallback or geocodes any user-specified city, address, or latitude/longitude coordinates.
-4. **LangGraph Cloud Ready**: Packaged with standard `langgraph.json` configuration, ready for seamless deployment to LangGraph Cloud and LangGraph Studio.
+**Aura** is a reliable, production-grade, and cost-effective personal AI agent built with **LangGraph** for **Baju** (*Sri Balaji*).
+
+Aura delivers daily actionable intelligence across four key areas:
+1. **🌤️ Weather, Wardrobe & Layering**: Live and 7-day forecast analysis with automated clothing decisions (1–4 layer breakdown, base/mid/outer garments, and weather accessories).
+2. **🚴‍♂️ Cycling Suitability**: Evaluates road grip, aerodynamic wind drag, thermal comfort, and severe weather hazards to compute a 0–100 Cycling Score, recommended cycling kit, and route safety guidance.
+3. **📰 Trending News Research & Deep-Dives**: Live monitoring of Technology, Politics, Science, and World events from Google News RSS feeds with short, reliable talking points and interactive background deep-dives.
+4. **🎟️ US Events & Sports Pulse**: Curates major US conferences, music festivals, NFL, Formula 1, and Cricket updates with natural conversation starters for networking and social discussions.
+5. **📍 Location Flexibility**: Automatically detects current device location via IP geolocation fallback or geocodes any city, address, or latitude/longitude coordinates.
+6. **☁️ LangGraph Cloud & Studio Ready**: Pre-configured with `langgraph.json` targeting Python 3.11 for single-click cloud deployment.
 
 ---
 
