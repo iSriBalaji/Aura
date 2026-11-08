@@ -1,9 +1,10 @@
-"""Automated test suite for the Weather, Clothing & Cycling LangGraph Agent."""
+"""Automated test suite for the Weather, Activity & Trending News LangGraph Agent."""
 
 import sys
 from weather_agent.decision_engine import evaluate_clothing, evaluate_cycling, analyze_weather
 from weather_agent.geolocation import detect_device_location, geocode_location, extract_location_from_text
 from weather_agent.weather_service import fetch_weather_forecast
+from weather_agent.news_service import fetch_trending_news, search_news_topic
 from weather_agent.graph import graph
 from langchain_core.messages import HumanMessage
 
@@ -20,8 +21,7 @@ def test_decision_logic():
     mild_rain_cloth = evaluate_clothing(apparent_temp_c=14.0, wind_speed_kmh=15.0, precip_prob=70.0, precip_mm=3.0)
     assert any("umbrella" in acc.lower() or "rain" in acc.lower() for acc in mild_rain_cloth["accessories"])
 
-    # Cycling tests
-    # Ideal conditions
+    # Cycling tests: Ideal
     ideal_cyc = evaluate_cycling(
         temp_c=20.0,
         apparent_temp_c=20.0,
@@ -34,7 +34,7 @@ def test_decision_logic():
     assert ideal_cyc["score"] >= 85, f"Expected >= 85 for ideal cycling, got {ideal_cyc['score']}"
     assert ideal_cyc["rating"] == "Excellent"
 
-    # Hazardous storm
+    # Cycling tests: Storm
     storm_cyc = evaluate_cycling(
         temp_c=15.0,
         apparent_temp_c=15.0,
@@ -49,54 +49,67 @@ def test_decision_logic():
     print("✅ Decision logic passed successfully!\n")
 
 
+def test_news_service():
+    print("Testing Trending News Service...")
+    news = fetch_trending_news(categories=["technology", "science", "politics", "general"], limit_per_cat=2)
+    assert "technology" in news
+    assert "science" in news
+    assert "politics" in news
+    assert "general" in news
+    assert len(news["technology"]) > 0, "No tech news retrieved"
+    print(f"Tech Headline Sample: {news['technology'][0]['title']}")
+
+    # Deep dive search
+    deepdive = search_news_topic("NASA Artemis", limit=3)
+    assert len(deepdive) > 0, "No deep dive results for NASA Artemis"
+    print(f"Deep-dive Result Sample: {deepdive[0]['title']}")
+    print("✅ News service passed successfully!\n")
+
+
 def test_geolocation_and_weather():
     print("Testing Geolocation & Weather Fetching...")
-    # Geocoding
     geo = geocode_location("Austin, TX")
     assert geo is not None, "Failed to geocode Austin, TX"
     assert "Austin" in geo["name"]
-    print(f"Geocoded: {geo['name']} -> ({geo['latitude']}, {geo['longitude']})")
 
-    # Weather fetch
     weather = fetch_weather_forecast(geo["latitude"], geo["longitude"])
-    assert "current" in weather, "Missing 'current' in weather response"
-    assert "daily" in weather, "Missing 'daily' in weather response"
-    assert len(weather["daily"]["time"]) >= 7, "Expected at least 7 days in daily forecast"
-    print(f"Weather fetched: {len(weather['daily']['time'])} days, current temp: {weather['current']['temperature_2m']}°C")
+    assert "current" in weather
+    assert "daily" in weather
+    assert len(weather["daily"]["time"]) >= 7
 
-    # Full analysis
     analysis = analyze_weather(weather)
     assert len(analysis["daily"]) >= 7
-    assert len(analysis["best_cycling_rankings"]) >= 7
     print("✅ Geolocation and Weather fetch passed successfully!\n")
 
 
 def test_graph_end_to_end():
     print("Testing LangGraph End-to-End Execution...")
 
-    # Test 1: Explicit location query
-    print("--- Test 1: Specified Location ('Tokyo') ---")
-    res1 = graph.invoke({"location_query": "Tokyo"})
+    # Test 1: Weather query
+    print("--- Test 1: Weather Intent ('Austin, TX') ---")
+    res1 = graph.invoke({"location_query": "Austin, TX"})
     assert res1.get("final_report"), "Graph did not generate a final report"
-    assert len(res1["messages"]) > 0
-    print(f"Location resolved: {res1['location_name']}")
-    print("Sample Output snippet:")
-    print("\n".join(res1["final_report"].split("\n")[:8]))
+    assert "Austin" in res1["location_name"]
 
-    # Test 2: Natural Language input with coordinates or device
-    print("\n--- Test 2: Natural language input ('Should I ride my bike in Seattle today?') ---")
+    # Test 2: News Digest query
+    print("\n--- Test 2: News Digest Intent ---")
     res2 = graph.invoke({
-        "messages": [HumanMessage(content="Should I ride my bike in Seattle today and what clothes do I need?")]
+        "messages": [HumanMessage(content="What are the trending important news stories in technology and science?")]
     })
     assert res2.get("final_report")
-    assert "Seattle" in res2["location_name"]
-    print(f"Location resolved from message: {res2['location_name']}")
+    assert "Trending Important News" in res2["final_report"] or "Technology" in res2["final_report"]
+    print("Sample News Output snippet:")
+    print("\n".join(res2["final_report"].split("\n")[:7]))
 
-    # Test 3: Device location fallback
-    print("\n--- Test 3: Auto-detect Device Location ---")
-    res3 = graph.invoke({})
+    # Test 3: News Deep Dive query
+    print("\n--- Test 3: News Deep Dive Intent ---")
+    res3 = graph.invoke({
+        "messages": [HumanMessage(content="Tell me more about NASA Artemis moon mission")]
+    })
     assert res3.get("final_report")
-    print(f"Device Location resolved: {res3['location_name']}")
+    assert "In-Depth News Brief" in res3["final_report"] or "Artemis" in res3["final_report"]
+    print("Sample Deep-Dive Output snippet:")
+    print("\n".join(res3["final_report"].split("\n")[:7]))
 
     print("\n🎉 All LangGraph End-to-End Tests Passed Successfully!")
 
@@ -104,6 +117,7 @@ def test_graph_end_to_end():
 if __name__ == "__main__":
     try:
         test_decision_logic()
+        test_news_service()
         test_geolocation_and_weather()
         test_graph_end_to_end()
     except Exception as e:

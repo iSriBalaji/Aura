@@ -1,11 +1,16 @@
-"""LLM synthesizer for Weather, Clothing & Cycling recommendations.
-Reliably interfaces with Gemini, OpenAI, or falls back to structured markdown
-if no LLM credentials are configured.
+"""LLM synthesizer for Weather, Wardrobe, Cycling & Trending News recommendations.
+Interfaces with Gemini (gemini-2.5-flash), OpenAI (gpt-4o-mini), or uses deterministic
+structured markdown fallbacks if no LLM credentials are set.
 """
 
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 from dotenv import load_dotenv
+
+from weather_agent.news_service import (
+    fallback_format_news_deepdive,
+    fallback_format_news_digest,
+)
 
 load_dotenv()
 
@@ -47,7 +52,7 @@ def fallback_format_report(
     location_name: str,
     analysis: Dict[str, Any],
 ) -> str:
-    """Deterministic, beautifully styled markdown report when LLM is offline or no API key is set."""
+    """Deterministic, beautifully styled markdown weather report when LLM is offline or no key is set."""
     curr = analysis["current"]
     curr_cloth = curr["clothing"]
     curr_cyc = curr["cycling"]
@@ -126,12 +131,12 @@ def fallback_format_report(
     return "\n".join(lines)
 
 
-def synthesize_report(
+def synthesize_weather_report(
     location_name: str,
     analysis: Dict[str, Any],
     user_query: Optional[str] = None,
 ) -> str:
-    """Synthesize decision analysis using LLM if available, otherwise fallback cleanly."""
+    """Synthesize weather, wardrobe, and cycling analysis using LLM if available."""
     llm = get_llm()
     if llm is None:
         return fallback_format_report(location_name, analysis)
@@ -140,7 +145,7 @@ def synthesize_report(
 Analyze the structured live weather, clothing calculations, and cycling suitability metrics below, then produce an engaging, clear, and actionable Markdown report.
 
 Target Location: {location_name}
-User Query / Context: {user_query or 'General daily and weekly forecast and advice'}
+User Query: {user_query or 'General daily and weekly forecast and advice'}
 
 Structured Decision Data:
 - Current Live Weather: {analysis['current']}
@@ -149,22 +154,13 @@ Structured Decision Data:
 
 Structure your response with:
 1. 🌤️ Header & Location Summary with live metrics (Temp, Feels Like, Wind, Conditions).
-2. 👕 Today's Wardrobe & Layering Strategy:
-   - Layer count and specific garments (Base layer, Mid layer, Outer shell, Bottoms, Footwear, and Accessories).
-   - Explain why (wind chill, rain chance, or heat).
-3. 🚴‍♂️ Today's Cycling Decision:
-   - Cycling Score (out of 100) and Rating Badge (Optimal / Good / Moderate / Poor / Hazardous).
-   - Road conditions, wind resistance, and specific cycling kit (jersey, tights, gilet, gloves).
-   - Essential bike handling & safety tips (tire pressure, braking, wind direction).
-4. 📅 7-Day Planning Table:
-   - Neatly formatted Markdown table covering Date, Weather, Temp (C & F), Rain Chance, Recommended Layers, and Cycling Rating.
-5. 🏆 Weekly Decision Takeaways:
-   - Best days for long cycling rides vs days to avoid / take a rest day or indoor trainer.
-   - Any significant weather shift mid-week to prepare for.
+2. 👕 Today's Wardrobe & Layering Strategy (Exact layers: Base, Mid, Outer shell, Bottoms, Footwear, and Accessories).
+3. 🚴‍♂️ Today's Cycling Decision (Score /100, Rating Badge, kit, road/wind tips).
+4. 📅 7-Day Planning Table (Date, Weather, Temp C/F, Rain chance, Layers needed, Cycling score & status).
+5. 🏆 Weekly Decision Takeaways (Best cycling day vs day to avoid).
 
-Be direct, highly organized, and practical. Do not make up fake weather data—use the provided metrics strictly.
+Be direct, highly organized, and practical.
 """
-
     try:
         response = llm.invoke(prompt)
         content = response.content
@@ -174,3 +170,83 @@ Be direct, highly organized, and practical. Do not make up fake weather data—u
         pass
 
     return fallback_format_report(location_name, analysis)
+
+
+def synthesize_news_digest(
+    news_data: Dict[str, List[Dict[str, Any]]],
+    user_query: Optional[str] = None,
+) -> str:
+    """Synthesize trending news into short, reliable talking points that can be shared with people."""
+    llm = get_llm()
+    if llm is None:
+        return fallback_format_news_digest(news_data)
+
+    prompt = f"""You are an elite news curator and conversational briefing advisor.
+Review the live trending news stories below across Technology, Politics, Science, and World events.
+Produce an organized, engaging Markdown briefing with SHORT, RELIABLE talking points that people can easily discuss with others.
+
+User Query: {user_query or 'Trending important news past week or today'}
+
+Raw News Feed Data:
+{news_data}
+
+Instructions:
+1. Organize by sections:
+   - 💻 **Technology & AI**
+   - 🏛️ **Politics & Policy**
+   - 🔬 **Science & Space / Discovery**
+   - 🌍 **General & World Events**
+2. For each key story:
+   - Provide a bold, punchy headline with publisher tag.
+   - 1-2 bullet points explaining: **What happened** and **Why it matters / what people are saying**.
+   - Keep points short, factual, and conversation-ready.
+3. At the end, add a prompt reminding the user:
+   "💡 *To dive deeper into any story, just ask: 'Tell me more about [topic or headline]'.*"
+"""
+    try:
+        response = llm.invoke(prompt)
+        content = response.content
+        if isinstance(content, str) and len(content.strip()) > 50:
+            return content.strip()
+    except Exception:
+        pass
+
+    return fallback_format_news_digest(news_data)
+
+
+def synthesize_news_deepdive(
+    query: str,
+    news_items: List[Dict[str, Any]],
+    user_query: Optional[str] = None,
+) -> str:
+    """Synthesize in-depth background context for a specific news item when asked by the user."""
+    llm = get_llm()
+    if llm is None:
+        return fallback_format_news_deepdive(query, news_items)
+
+    prompt = f"""You are an in-depth investigative news analyst and conversational advisor.
+The user wants additional context and background on a specific news topic from the recent trending headlines.
+
+Topic: {query}
+User Request: {user_query}
+
+Recent News Articles / Coverage:
+{news_items}
+
+Please synthesize a comprehensive, easy-to-digest deep-dive briefing structured with:
+1. 📌 **Executive Overview**: What is the core development right now?
+2. 🔍 **Key Background & Context**: What led to this event over recent days or weeks?
+3. 💬 **Why It Matters & Key Perspectives**: What are the major impacts, controversies, or points of view?
+4. 🗣️ **Conversational Talking Points**: 2-3 memorable, high-value bullet points to mention when discussing this topic with others.
+
+Be objective, fact-based, and clear.
+"""
+    try:
+        response = llm.invoke(prompt)
+        content = response.content
+        if isinstance(content, str) and len(content.strip()) > 50:
+            return content.strip()
+    except Exception:
+        pass
+
+    return fallback_format_news_deepdive(query, news_items)
