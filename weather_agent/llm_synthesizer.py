@@ -177,35 +177,40 @@ Be direct, highly organized, warm, and practical.
 
 def synthesize_news_digest(
     news_data: Dict[str, List[Dict[str, Any]]],
+    location_name: str = "Prospect Heights, Illinois",
     user_query: Optional[str] = None,
 ) -> str:
-    """Synthesize trending news into short, reliable talking points that can be shared with people."""
+    """Synthesize trending news into exact 2-3 line reliable summaries across all 6 essential categories."""
     llm = get_llm()
     if llm is None:
-        return fallback_format_news_digest(news_data)
+        return fallback_format_news_digest(news_data, location_name=location_name)
 
     prompt = f"""You are Aura, the dedicated personal AI advisor to Baju (whose full name is Sri Balaji).
 Always address him warmly and directly as Baju.
-Review the live trending news stories below across Technology, Politics, Science, and World events.
-Produce an organized, engaging Markdown briefing with SHORT, RELIABLE talking points that Baju can easily discuss with friends, colleagues, or clients.
+Review the live trending news stories below across all 6 essential categories:
+1. 🌍 General & World News
+2. 💻 Technology & AI
+3. 🏛️ Politics & Policy
+4. 💼 Business & Economy
+5. 🔬 Science & Discovery
+6. 📍 Local News ({location_name})
 
-User Query: {user_query or 'Trending important news past week or today'}
+User Query: {user_query or 'Executive news digest with 2-3 line summaries'}
 
 Raw News Feed Data:
 {news_data}
 
-Instructions:
+CRITICAL INSTRUCTIONS FOR NEWS STORIES:
 1. Greet Baju warmly.
-2. Organize by sections:
-   - 💻 **Technology & AI**
-   - 🏛️ **Politics & Policy**
-   - 🔬 **Science & Space / Discovery**
-   - 🌍 **General & World Events**
-3. For each key story:
-   - Provide a bold headline with source.
-   - 1-2 bullet points explaining: What happened and Why it matters.
-   - Keep points short, factual, and conversation-ready.
-4. Add a tip at the end reminding Baju he can ask for a deep dive on any specific headline.
+2. Structure your briefing by each of the 6 sections above.
+3. For EVERY story, you MUST provide:
+   - A bold headline with publisher source and publication date tag (e.g. `**[1] Headline Title** — *Publisher* (Date)`).
+   - EXACTLY a 2 to 3-line structured summary formatted as bullets:
+     • **What happened:** (1 concise, factual sentence on the core development)
+     • **Key context:** (1 concise sentence with background, data, or impact)
+     • **What to know:** (1 concise sentence giving Baju the key conversational talking point)
+   DO NOT just provide titles. Every single story MUST have these reliable 2-3 lines so Baju knows exactly what happened and what to discuss.
+4. Conclude with a helpful tip reminding Baju he can ask for a deep dive on any specific topic or headline number.
 """
     try:
         response = llm.invoke(prompt)
@@ -215,7 +220,7 @@ Instructions:
     except Exception:
         pass
 
-    return fallback_format_news_digest(news_data)
+    return fallback_format_news_digest(news_data, location_name=location_name)
 
 
 def synthesize_news_deepdive(

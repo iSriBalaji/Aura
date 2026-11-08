@@ -162,7 +162,7 @@ elif btn_cycling:
     triggered_query = f"Can I cycle today in {default_loc}? What is the cycling score and recommended kit?"
     triggered_intent = "weather"
 elif btn_news:
-    triggered_query = "What is the trending important news today and past week in Tech, Politics, Science, and World events?"
+    triggered_query = f"Give me today's executive news digest with 2-3 line summaries across General & World, Technology, Politics, Business, Science, and Local news for {default_loc}."
     triggered_intent = "news_digest"
 elif btn_events:
     triggered_query = f"What major events, conferences, festivals, and sports updates are happening in the US or in {default_loc}?"
@@ -191,7 +191,7 @@ if not st.session_state.messages:
         > Tap any of the **Quick Daily Briefings** in the sidebar, or ask me directly below!
         > - *\"What should I wear today in Prospect Heights?\"*
         > - *\"Is it safe to cycle this afternoon?\"*
-        > - *\"What are the top tech & science breakthroughs this week?\"*
+        > - *\"Give me today's 2-3 line news summaries across tech, business, politics, science, and local news!\"*
         > - *\"What major US festivals or F1 updates can I talk about?\"*
         """
     )

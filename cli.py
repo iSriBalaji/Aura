@@ -112,7 +112,7 @@ def main():
         "-n", "--news", action="store_true", help="Fetch current trending important news digest"
     )
     parser.add_argument(
-        "--news-topic", type=str, choices=["technology", "politics", "science", "general"],
+        "--news-topic", type=str, choices=["technology", "politics", "business", "science", "general", "local"],
         help="Filter news by topic"
     )
     parser.add_argument(

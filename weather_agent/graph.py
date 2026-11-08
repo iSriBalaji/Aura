@@ -84,7 +84,7 @@ def route_intent_node(state: WeatherAgentState) -> Dict[str, Any]:
 
     is_news = bool(
         re.search(
-            r"\b(news|trending|headlines|happening in the world|talking about|politics|tech news|science news)\b",
+            r"\b(news|trending|headlines|happening in the world|talking about|politics|tech news|technology news|science news|business news|business|market|markets|economy|local news)\b",
             last_text,
             re.IGNORECASE,
         )
@@ -112,8 +112,15 @@ def route_intent_node(state: WeatherAgentState) -> Dict[str, Any]:
     if is_news and is_weather:
         return {"intent": "combined"}
     elif is_news:
-        cats = ["general", "technology", "politics", "science"]
+        cats = ["general", "technology", "politics", "business", "science", "local"]
         requested_cats = [c for c in cats if re.search(rf"\b{c}\b", last_text, re.IGNORECASE)]
+        if re.search(r"\b(world|international)\b", last_text, re.IGNORECASE) and "general" not in requested_cats:
+            requested_cats.append("general")
+        if re.search(r"\b(market|markets|economy)\b", last_text, re.IGNORECASE) and "business" not in requested_cats:
+            requested_cats.append("business")
+        if re.search(r"\b(local)\b", last_text, re.IGNORECASE) and "local" not in requested_cats:
+            requested_cats.append("local")
+
         return {
             "intent": "news_digest",
             "news_categories": requested_cats or cats,
@@ -183,10 +190,18 @@ def decision_engine_node(state: WeatherAgentState) -> Dict[str, Any]:
 
 
 def fetch_news_digest_node(state: WeatherAgentState) -> Dict[str, Any]:
-    """Fetch trending news across technology, politics, science, and general."""
-    cats = state.get("news_categories") or ["general", "technology", "politics", "science"]
-    news_data = fetch_trending_news(categories=cats, limit_per_cat=3)
-    return {"news_data": news_data}
+    """Fetch trending news across general, technology, politics, business, science, and local."""
+    cats = state.get("news_categories") or ["general", "technology", "politics", "business", "science", "local"]
+    loc_name = state.get("location_name") or state.get("location_query")
+    if not loc_name and state.get("messages"):
+        last_msg = state["messages"][-1]
+        msg_text = last_msg.content if isinstance(last_msg.content, str) else str(last_msg.content)
+        loc_name = extract_location_from_text(msg_text)
+    if not loc_name:
+        loc_name = "Prospect Heights, Illinois"
+
+    news_data = fetch_trending_news(categories=cats, location_name=loc_name, limit_per_cat=2)
+    return {"news_data": news_data, "location_name": loc_name}
 
 
 def fetch_news_deepdive_node(state: WeatherAgentState) -> Dict[str, Any]:
@@ -237,8 +252,9 @@ def synthesize_weather_node(state: WeatherAgentState) -> Dict[str, Any]:
 
 
 def synthesize_news_node(state: WeatherAgentState) -> Dict[str, Any]:
-    """Generate trending news digest report."""
+    """Generate trending news digest report with structured 2-3 line summaries."""
     news_data = state["news_data"]
+    loc_name = state.get("location_name") or "Prospect Heights, Illinois"
 
     user_query = None
     if state.get("messages"):
@@ -246,7 +262,7 @@ def synthesize_news_node(state: WeatherAgentState) -> Dict[str, Any]:
         if isinstance(last_msg, HumanMessage) or getattr(last_msg, "type", None) == "human":
             user_query = last_msg.content if isinstance(last_msg.content, str) else str(last_msg.content)
 
-    final_report = synthesize_news_digest(news_data, user_query=user_query)
+    final_report = synthesize_news_digest(news_data, location_name=loc_name, user_query=user_query)
     return {
         "final_report": final_report,
         "messages": [AIMessage(content=final_report)],
@@ -299,12 +315,12 @@ def synthesize_events_node(state: WeatherAgentState) -> Dict[str, Any]:
 
 def synthesize_combined_node(state: WeatherAgentState) -> Dict[str, Any]:
     """Generate combined weather + trending news report."""
-    loc_name = state.get("location_name", "Your Location")
+    loc_name = state.get("location_name", "Prospect Heights, Illinois")
     analysis = state["decision_analysis"]
     news_data = state["news_data"]
 
     weather_rep = synthesize_weather_report(location_name=loc_name, analysis=analysis)
-    news_rep = synthesize_news_digest(news_data)
+    news_rep = synthesize_news_digest(news_data, location_name=loc_name)
 
     combined = f"{weather_rep}\n\n---\n\n{news_rep}"
     return {

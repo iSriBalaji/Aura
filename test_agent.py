@@ -14,6 +14,25 @@ from weather_agent.graph import graph
 from langchain_core.messages import HumanMessage
 
 
+def test_news_service():
+    print("Testing News Service with 2-3 Line Summaries & 6 Categories...")
+    news = fetch_trending_news(location_name="Prospect Heights, Illinois", limit_per_cat=2)
+    expected_cats = ["general", "technology", "politics", "business", "science", "local"]
+    for c in expected_cats:
+        assert c in news, f"Missing category: {c}"
+        assert len(news[c]) > 0, f"No stories found for category: {c}"
+        for item in news[c]:
+            assert "what_happened" in item, f"Missing 'what_happened' in {item}"
+            assert "key_context" in item, f"Missing 'key_context' in {item}"
+            assert "what_to_know" in item, f"Missing 'what_to_know' in {item}"
+
+    print(f"Sample Tech Story: {news['technology'][0]['title']}")
+    print(f"  • What happened: {news['technology'][0]['what_happened']}")
+    print(f"  • Key context: {news['technology'][0]['key_context']}")
+    print(f"  • What to know: {news['technology'][0]['what_to_know']}")
+    print("✅ News service passed successfully!\n")
+
+
 def test_events_and_sports_service():
     print("Testing Events & Sports Service...")
     # US Events
@@ -66,11 +85,28 @@ def test_graph_end_to_end():
     print("Sample City Events Output snippet:")
     print("\n".join(res3["final_report"].split("\n")[:8]))
 
+    # Test 4: News Intent with 2-3 Line Summaries & 6 Categories
+    print("\n--- Test 4: News Digest Intent (All 6 Categories & 2-3 Line Summaries) ---")
+    res4 = graph.invoke({
+        "messages": [HumanMessage(content="Give me the trending news digest today with 2-3 line summaries")]
+    })
+    assert res4.get("final_report")
+    assert "Technology" in res4["final_report"]
+    assert "Business" in res4["final_report"]
+    assert "Politics" in res4["final_report"]
+    assert "Science" in res4["final_report"]
+    assert "Local" in res4["final_report"]
+    assert "What happened:" in res4["final_report"]
+    assert "What to know:" in res4["final_report"]
+    print("Sample News Output snippet:")
+    print("\n".join(res4["final_report"].split("\n")[:14]))
+
     print("\n🎉 All LangGraph End-to-End Tests Passed Successfully!")
 
 
 if __name__ == "__main__":
     try:
+        test_news_service()
         test_events_and_sports_service()
         test_graph_end_to_end()
     except Exception as e:
