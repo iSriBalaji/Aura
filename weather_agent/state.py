@@ -1,4 +1,4 @@
-"""State definition for the Weather, Activity, and Trending News LangGraph agent."""
+"""State definition for Weather, Wardrobe, Cycling, Trending News, Events & Sports agent."""
 
 from typing import Annotated, Any, Dict, List, Optional
 from typing_extensions import TypedDict
@@ -7,11 +7,11 @@ from langgraph.graph.message import add_messages
 
 
 class WeatherAgentState(TypedDict, total=False):
-    """LangGraph state representation for weather, wardrobe, cycling, and trending news."""
+    """LangGraph state representation for weather, wardrobe, cycling, trending news, events, and sports."""
     # Conversation messages (standard LangGraph message list)
     messages: Annotated[List[AnyMessage], add_messages]
 
-    # Intent routing: 'weather', 'news_digest', 'news_deepdive', 'combined'
+    # Intent routing: 'weather', 'news_digest', 'news_deepdive', 'events_sports', 'combined'
     intent: Optional[str]
 
     # Geolocation / target location
@@ -26,10 +26,16 @@ class WeatherAgentState(TypedDict, total=False):
     decision_analysis: Optional[Dict[str, Any]]
 
     # Trending news data
-    news_categories: Optional[List[str]]  # e.g. ['technology', 'science', 'politics', 'general']
-    news_data: Optional[Dict[str, Any]]   # structured news digest
-    news_query: Optional[str]             # query for deep dive
+    news_categories: Optional[List[str]]
+    news_data: Optional[Dict[str, Any]]
+    news_query: Optional[str]
     news_deepdive_items: Optional[List[Dict[str, Any]]]
+
+    # Events & Sports data
+    events_data: Optional[Dict[str, Any]]        # US conferences, music festivals, etc.
+    sports_data: Optional[Dict[str, Any]]        # NFL, F1, Cricket, general sports
+    city_events: Optional[List[Dict[str, Any]]]  # Location-specific events/festivals
+    sports_filter: Optional[List[str]]          # Specific sports requested (e.g. ['f1', 'cricket'])
 
     # Final synthesized user-facing markdown response
     final_report: Optional[str]

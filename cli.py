@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Interactive CLI for Weather, Wardrobe, Cycling & Trending News LangGraph Agent."""
+"""Interactive CLI for Weather, Wardrobe, Cycling, Trending News, Events & Sports LangGraph Agent."""
 
 import argparse
 import sys
@@ -15,6 +15,8 @@ def run_agent(
     news: bool = False,
     news_topic: str = None,
     deepdive: str = None,
+    events: bool = False,
+    sports: bool = False,
 ):
     """Invoke the LangGraph agent with given parameters."""
     print("⏳ Invoking LangGraph Advisor...")
@@ -24,6 +26,13 @@ def run_agent(
         initial_state["intent"] = "news_deepdive"
         initial_state["news_query"] = deepdive
         initial_state["messages"] = [HumanMessage(content=f"Tell me more about {deepdive}")]
+    elif events or sports:
+        initial_state["intent"] = "events_sports"
+        if location:
+            initial_state["location_query"] = location
+        if sports:
+            initial_state["sports_filter"] = ["football", "f1", "cricket", "general_sports"]
+        initial_state["messages"] = [HumanMessage(content=f"What are the major events and sports updates?")]
     elif news or news_topic:
         initial_state["intent"] = "news_digest"
         if news_topic:
@@ -55,17 +64,20 @@ def run_agent(
 
 
 def interactive_mode():
-    """Run an interactive prompt loop supporting weather, news, and deep-dives."""
-    print("\n🌤️ 🚴 📰 Welcome to the Weather, Activity & Trending News Advisor (LangGraph)!")
+    """Run an interactive prompt loop supporting weather, news, events, and sports."""
+    print("\n🌤️ 🚴 📰 🎟️ Welcome to the Weather, Activity, Events & Sports Advisor (LangGraph)!")
     print("You can ask about:")
-    print("  • Weather & Cycling: 'Can I cycle in Seattle tomorrow?', 'Prospect Heights, IL', 'Today'")
-    print("  • Trending News: 'What is trending in news today?', 'Tech headlines', 'Science news'")
-    print("  • Follow-Up Deep-Dive: 'Tell me more about NASA Artemis', 'Details on [headline]'")
+    print("  • Weather & Cycling: 'Weather and clothes in Prospect Heights', 'Can I cycle in Seattle?'")
+    print("  • Trending News: 'What is trending in tech and politics today?', 'Science news'")
+    print("  • US Events & Festivals: 'What major events are happening in the US?', 'Conferences this week'")
+    print("  • City-Specific Events: 'What events are happening in Chicago?', 'Austin events'")
+    print("  • Sports Updates: 'F1 race highlights', 'Cricket scores', 'NFL American football updates'")
+    print("  • News Deep-Dive: 'Tell me more about NASA Artemis', 'Details on [story]'")
     print("Type 'exit' or 'quit' to stop.\n")
 
     while True:
         try:
-            user_input = input("🌦️ / 📰 Your query > ").strip()
+            user_input = input("🌦️ / 📰 / 🎟️ Your query > ").strip()
             if not user_input:
                 continue
             if user_input.lower() in ("exit", "quit", "q"):
@@ -74,16 +86,16 @@ def interactive_mode():
 
             run_agent(message=user_input)
         except (KeyboardInterrupt, EOFError):
-            print("\nExiting. Stay informed and safe out there!")
+            print("\nExiting. Stay informed and have great conversations!")
             break
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Reliable & Cost-Effective LangGraph Weather, Wardrobe, Cycling & Trending News Advisor."
+        description="Reliable & Cost-Effective LangGraph Weather, Activity, Events & Sports Advisor."
     )
     parser.add_argument(
-        "-l", "--location", type=str, help="Specific location name or address (e.g. 'Austin, TX', 'London', 'Tokyo')"
+        "-l", "--location", type=str, help="Specific location name or city (e.g. 'Austin, TX', 'Chicago', 'London')"
     )
     parser.add_argument(
         "--lat", type=float, help="Explicit latitude (e.g. 30.2672)"
@@ -105,6 +117,12 @@ def main():
         "--deepdive", type=str, help="Get additional background context on a specific news topic"
     )
     parser.add_argument(
+        "-e", "--events", action="store_true", help="Fetch major US events, conferences, and festivals"
+    )
+    parser.add_argument(
+        "-s", "--sports", action="store_true", help="Fetch sports updates (Football, F1, Cricket, NBA)"
+    )
+    parser.add_argument(
         "-i", "--interactive", action="store_true", help="Launch interactive chat mode"
     )
 
@@ -121,6 +139,8 @@ def main():
             news=args.news,
             news_topic=args.news_topic,
             deepdive=args.deepdive,
+            events=args.events,
+            sports=args.sports,
         )
 
 

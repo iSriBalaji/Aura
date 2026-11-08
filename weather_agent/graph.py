@@ -1,6 +1,6 @@
-"""LangGraph Workflow definition for Weather, Wardrobe, Cycling & Trending News.
+"""LangGraph Workflow definition for Weather, Wardrobe, Cycling, Trending News, Events & Sports.
 Supports multi-intent routing: weather decisions, trending news digests,
-and interactive in-depth news follow-ups.
+news follow-ups, and US/global events & sports briefings.
 """
 
 import re
@@ -9,12 +9,18 @@ from langchain_core.messages import AIMessage, HumanMessage
 from langgraph.graph import END, START, StateGraph
 
 from weather_agent.decision_engine import analyze_weather
+from weather_agent.events_service import (
+    fetch_city_events,
+    fetch_major_us_events,
+    fetch_sports_briefing,
+)
 from weather_agent.geolocation import (
     detect_device_location,
     extract_location_from_text,
     geocode_location,
 )
 from weather_agent.llm_synthesizer import (
+    synthesize_events_and_sports,
     synthesize_news_deepdive,
     synthesize_news_digest,
     synthesize_weather_report,
@@ -28,8 +34,13 @@ from weather_agent.weather_service import fetch_weather_forecast
 
 
 def route_intent_node(state: WeatherAgentState) -> Dict[str, Any]:
-    """Determine the intent: weather, news_digest, news_deepdive, or combined."""
-    # If state already has intent explicitly set
+    """Determine the user intent:
+    - events_sports: US conferences, music festivals, sports (NFL, F1, Cricket), city events
+    - news_deepdive: detailed follow-up on a specific headline
+    - news_digest: general/tech/politics/science trending news
+    - combined: weather + news/events
+    - weather: weather, wardrobe, and cycling decisions (default)
+    """
     if state.get("intent"):
         return {"intent": state["intent"]}
 
@@ -40,7 +51,7 @@ def route_intent_node(state: WeatherAgentState) -> Dict[str, Any]:
             last_msg.content if isinstance(last_msg.content, str) else str(last_msg.content)
         )
 
-    # 1. Check for News Deep Dive / Follow-up patterns
+    # 1. News Deep Dive / Follow-up cues
     deep_dive_patterns = [
         r"(?:tell me more about|more details (?:on|about)|more context (?:on|about)|elaborate on|deep dive (?:on|into)|what happened with|details on)\s+['\"]?([^'\"?]+)['\"]?",
         r"(?:tell me about|info on|explain)\s+(?:item\s+|#)?(\d+|[A-Za-z0-9\s-]+)",
@@ -49,21 +60,20 @@ def route_intent_node(state: WeatherAgentState) -> Dict[str, Any]:
         m = re.search(pat, last_text, re.IGNORECASE)
         if m:
             query_target = m.group(1).strip()
-            # If the user asked for a number like "#2" and we have previous news items
-            # or if they gave a name
             return {
                 "intent": "news_deepdive",
                 "news_query": query_target,
             }
 
-    # 2. Check for News vs Weather keywords
-    is_news = bool(
+    # 2. Events & Sports cues
+    is_events_or_sports = bool(
         re.search(
-            r"\b(news|trending|headlines|happening|talking about|politics|tech news|science news|world events)\b",
+            r"\b(event|events|conference|conferences|festival|festivals|concert|concerts|expo|sports|sport|football|nfl|formula 1|formula one|f1|cricket|nba|super bowl|grand prix)\b",
             last_text,
             re.IGNORECASE,
         )
     )
+
     is_weather = bool(
         re.search(
             r"\b(weather|forecast|rain|temperature|wear|clothes|clothing|layers|cycling|bike|biking|ride)\b",
@@ -72,15 +82,38 @@ def route_intent_node(state: WeatherAgentState) -> Dict[str, Any]:
         )
     )
 
+    is_news = bool(
+        re.search(
+            r"\b(news|trending|headlines|happening in the world|talking about|politics|tech news|science news)\b",
+            last_text,
+            re.IGNORECASE,
+        )
+    )
+
+    if is_events_or_sports:
+        # Check sports filters
+        sports_filter = []
+        if re.search(r"\b(football|nfl|cfb)\b", last_text, re.IGNORECASE):
+            sports_filter.append("football")
+        if re.search(r"\b(f1|formula 1|formula one|grand prix)\b", last_text, re.IGNORECASE):
+            sports_filter.append("f1")
+        if re.search(r"\b(cricket|ipl|icc)\b", last_text, re.IGNORECASE):
+            sports_filter.append("cricket")
+
+        # Check if city was mentioned for local events
+        city = extract_location_from_text(last_text) or state.get("location_query")
+
+        return {
+            "intent": "events_sports",
+            "sports_filter": sports_filter or ["football", "f1", "cricket", "general_sports"],
+            "location_query": city,
+        }
+
     if is_news and is_weather:
         return {"intent": "combined"}
     elif is_news:
-        # Check if specific category requested
         cats = ["general", "technology", "politics", "science"]
-        requested_cats = []
-        for c in cats:
-            if re.search(rf"\b{c}\b", last_text, re.IGNORECASE):
-                requested_cats.append(c)
+        requested_cats = [c for c in cats if re.search(rf"\b{c}\b", last_text, re.IGNORECASE)]
         return {
             "intent": "news_digest",
             "news_categories": requested_cats or cats,
@@ -90,9 +123,7 @@ def route_intent_node(state: WeatherAgentState) -> Dict[str, Any]:
 
 
 def resolve_location_node(state: WeatherAgentState) -> Dict[str, Any]:
-    """Resolve location from explicit coordinates, user query string,
-    message history, or auto-detect from device IP.
-    """
+    """Resolve location for weather queries."""
     lat = state.get("latitude")
     lon = state.get("longitude")
     loc_name = state.get("location_name")
@@ -125,7 +156,6 @@ def resolve_location_node(state: WeatherAgentState) -> Dict[str, Any]:
                 "location_query": query,
             }
 
-    # Fallback to device location
     device = detect_device_location()
     return {
         "latitude": device["latitude"],
@@ -164,6 +194,24 @@ def fetch_news_deepdive_node(state: WeatherAgentState) -> Dict[str, Any]:
     query = state.get("news_query") or "trending news"
     items = search_news_topic(query, limit=5)
     return {"news_deepdive_items": items}
+
+
+def fetch_events_and_sports_node(state: WeatherAgentState) -> Dict[str, Any]:
+    """Fetch major US events, sports updates (football, F1, cricket), and city events."""
+    sports_filter = state.get("sports_filter") or ["football", "f1", "cricket", "general_sports"]
+    us_events = fetch_major_us_events()
+    sports = fetch_sports_briefing(sports_filter)
+
+    city_name = state.get("location_query")
+    city_events = []
+    if city_name:
+        city_events = fetch_city_events(city_name)
+
+    return {
+        "events_data": us_events,
+        "sports_data": sports,
+        "city_events": city_events,
+    }
 
 
 def synthesize_weather_node(state: WeatherAgentState) -> Dict[str, Any]:
@@ -223,6 +271,32 @@ def synthesize_deepdive_node(state: WeatherAgentState) -> Dict[str, Any]:
     }
 
 
+def synthesize_events_node(state: WeatherAgentState) -> Dict[str, Any]:
+    """Generate events, festivals, and sports conversation report."""
+    us_events = state.get("events_data")
+    sports = state.get("sports_data")
+    city_name = state.get("location_query")
+    city_events = state.get("city_events")
+
+    user_query = None
+    if state.get("messages"):
+        last_msg = state["messages"][-1]
+        if isinstance(last_msg, HumanMessage) or getattr(last_msg, "type", None) == "human":
+            user_query = last_msg.content if isinstance(last_msg.content, str) else str(last_msg.content)
+
+    final_report = synthesize_events_and_sports(
+        us_events=us_events,
+        sports=sports,
+        city_name=city_name,
+        city_events=city_events,
+        user_query=user_query,
+    )
+    return {
+        "final_report": final_report,
+        "messages": [AIMessage(content=final_report)],
+    }
+
+
 def synthesize_combined_node(state: WeatherAgentState) -> Dict[str, Any]:
     """Generate combined weather + trending news report."""
     loc_name = state.get("location_name", "Your Location")
@@ -240,9 +314,13 @@ def synthesize_combined_node(state: WeatherAgentState) -> Dict[str, Any]:
 
 
 # Routing Condition Function
-def choose_intent_branch(state: WeatherAgentState) -> Literal["weather_branch", "news_branch", "deepdive_branch", "combined_branch"]:
+def choose_intent_branch(
+    state: WeatherAgentState,
+) -> Literal["weather_branch", "news_branch", "deepdive_branch", "events_branch", "combined_branch"]:
     intent = state.get("intent", "weather")
-    if intent == "news_deepdive":
+    if intent == "events_sports":
+        return "events_branch"
+    elif intent == "news_deepdive":
         return "deepdive_branch"
     elif intent == "news_digest":
         return "news_branch"
@@ -261,9 +339,11 @@ builder.add_node("fetch_weather", fetch_weather_node)
 builder.add_node("decision_engine", decision_engine_node)
 builder.add_node("fetch_news_digest", fetch_news_digest_node)
 builder.add_node("fetch_news_deepdive", fetch_news_deepdive_node)
+builder.add_node("fetch_events_and_sports", fetch_events_and_sports_node)
 builder.add_node("synthesize_weather", synthesize_weather_node)
 builder.add_node("synthesize_news", synthesize_news_node)
 builder.add_node("synthesize_deepdive", synthesize_deepdive_node)
+builder.add_node("synthesize_events", synthesize_events_node)
 builder.add_node("synthesize_combined", synthesize_combined_node)
 
 # Add Conditional Edges from Router
@@ -275,15 +355,15 @@ builder.add_conditional_edges(
         "weather_branch": "resolve_location",
         "news_branch": "fetch_news_digest",
         "deepdive_branch": "fetch_news_deepdive",
+        "events_branch": "fetch_events_and_sports",
         "combined_branch": "resolve_location",
     },
 )
 
-# Weather Branch: resolve_location -> fetch_weather -> decision_engine -> synthesize_weather -> END
+# Weather Branch: resolve_location -> fetch_weather -> decision_engine
 builder.add_edge("resolve_location", "fetch_weather")
 builder.add_edge("fetch_weather", "decision_engine")
 
-# Check if combined or pure weather
 def check_weather_or_combined(state: WeatherAgentState) -> Literal["pure_weather", "go_to_news"]:
     if state.get("intent") == "combined":
         return "go_to_news"
@@ -298,7 +378,6 @@ builder.add_conditional_edges(
     },
 )
 
-# Combined path continues to synthesize_combined
 def check_after_news(state: WeatherAgentState) -> Literal["synthesize_news", "synthesize_combined"]:
     if state.get("intent") == "combined":
         return "synthesize_combined"
@@ -313,13 +392,17 @@ builder.add_conditional_edges(
     },
 )
 
-# News Deep Dive Branch: fetch_news_deepdive -> synthesize_deepdive -> END
+# Deep Dive Branch
 builder.add_edge("fetch_news_deepdive", "synthesize_deepdive")
+
+# Events & Sports Branch
+builder.add_edge("fetch_events_and_sports", "synthesize_events")
 
 # Terminal Edges to END
 builder.add_edge("synthesize_weather", END)
 builder.add_edge("synthesize_news", END)
 builder.add_edge("synthesize_deepdive", END)
+builder.add_edge("synthesize_events", END)
 builder.add_edge("synthesize_combined", END)
 
 # Compile Graph

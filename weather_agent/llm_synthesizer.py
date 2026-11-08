@@ -1,4 +1,4 @@
-"""LLM synthesizer for Weather, Wardrobe, Cycling & Trending News recommendations.
+"""LLM synthesizer for Weather, Wardrobe, Cycling, Trending News, Events & Sports recommendations.
 Interfaces with Gemini (gemini-2.5-flash), OpenAI (gpt-4o-mini), or uses deterministic
 structured markdown fallbacks if no LLM credentials are set.
 """
@@ -7,6 +7,7 @@ import os
 from typing import Any, Dict, List, Optional
 from dotenv import load_dotenv
 
+from weather_agent.events_service import fallback_format_events_and_sports
 from weather_agent.news_service import (
     fallback_format_news_deepdive,
     fallback_format_news_digest,
@@ -197,11 +198,10 @@ Instructions:
    - 🔬 **Science & Space / Discovery**
    - 🌍 **General & World Events**
 2. For each key story:
-   - Provide a bold, punchy headline with publisher tag.
-   - 1-2 bullet points explaining: **What happened** and **Why it matters / what people are saying**.
+   - Provide a bold headline with source.
+   - 1-2 bullet points explaining: What happened and Why it matters.
    - Keep points short, factual, and conversation-ready.
-3. At the end, add a prompt reminding the user:
-   "💡 *To dive deeper into any story, just ask: 'Tell me more about [topic or headline]'.*"
+3. Add a tip at the end for follow-up details.
 """
     try:
         response = llm.invoke(prompt)
@@ -237,9 +237,7 @@ Please synthesize a comprehensive, easy-to-digest deep-dive briefing structured 
 1. 📌 **Executive Overview**: What is the core development right now?
 2. 🔍 **Key Background & Context**: What led to this event over recent days or weeks?
 3. 💬 **Why It Matters & Key Perspectives**: What are the major impacts, controversies, or points of view?
-4. 🗣️ **Conversational Talking Points**: 2-3 memorable, high-value bullet points to mention when discussing this topic with others.
-
-Be objective, fact-based, and clear.
+4. 🗣️ **Conversational Talking Points**: 2-3 memorable bullet points to mention when discussing this topic.
 """
     try:
         response = llm.invoke(prompt)
@@ -250,3 +248,57 @@ Be objective, fact-based, and clear.
         pass
 
     return fallback_format_news_deepdive(query, news_items)
+
+
+def synthesize_events_and_sports(
+    us_events: Optional[Dict[str, List[Dict[str, Any]]]] = None,
+    sports: Optional[Dict[str, List[Dict[str, Any]]]] = None,
+    city_name: Optional[str] = None,
+    city_events: Optional[List[Dict[str, Any]]] = None,
+    user_query: Optional[str] = None,
+) -> str:
+    """Synthesize US & global events, sports highlights, and conversation starters."""
+    llm = get_llm()
+    if llm is None:
+        return fallback_format_events_and_sports(
+            us_events=us_events,
+            sports=sports,
+            city_name=city_name,
+            city_events=city_events,
+        )
+
+    prompt = f"""You are a master social conversation advisor and sports/events correspondent.
+The user is asking about major events happening in the US (popular conferences, music festivals, major sports, or city-specific events) to talk about with others and start engaging conversations.
+
+User Request: {user_query or 'Major US events, conferences, music festivals, and sports updates'}
+City Focus: {city_name or 'General US / Popular Globally'}
+
+Data Collected:
+- City Events: {city_events if city_name else 'None'}
+- US Events (Conferences, Festivals, Entertainment): {us_events}
+- Sports Updates (American Football, Formula 1, Cricket, General): {sports}
+
+Instructions:
+1. Structure into clean, scannable sections:
+   - 📍 **City Happenings** (if a city was mentioned: top festivals, concerts, or local buzz).
+   - 🎪 **Major US Events** (Conferences/Expos, Music Festivals, Major Entertainment).
+   - 🏈 **Sports Pulse** (American Football / NFL / College highlights, 🏎️ Formula 1 Grand Prix status, 🏏 Cricket international matches).
+2. For each key event or sport:
+   - Provide a short, factual 1-2 sentence breakdown of what happened or what's coming up.
+   - Include a natural "💬 **Conversation Starter**" quote the user can literally say in conversation with friends or coworkers (e.g., "Did you see how Norris took pole in the wet qualifying?").
+3. Keep the tone vibrant, practical, and conversational.
+"""
+    try:
+        response = llm.invoke(prompt)
+        content = response.content
+        if isinstance(content, str) and len(content.strip()) > 50:
+            return content.strip()
+    except Exception:
+        pass
+
+    return fallback_format_events_and_sports(
+        us_events=us_events,
+        sports=sports,
+        city_name=city_name,
+        city_events=city_events,
+    )
