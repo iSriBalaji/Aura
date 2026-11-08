@@ -1,7 +1,7 @@
 """Automated test suite for Weather, Wardrobe, Cycling, News, Events & Sports LangGraph Agent."""
 
 import sys
-from weather_agent.decision_engine import evaluate_clothing, evaluate_cycling, analyze_weather
+from weather_agent.decision_engine import evaluate_clothing, evaluate_cycling, analyze_weather, find_optimal_outdoor_windows
 from weather_agent.geolocation import detect_device_location, geocode_location
 from weather_agent.weather_service import fetch_weather_forecast
 from weather_agent.news_service import fetch_trending_news, search_news_topic
@@ -10,6 +10,13 @@ from weather_agent.events_service import (
     fetch_major_us_events,
     fetch_sports_briefing,
 )
+from weather_agent.memory_service import (
+    add_custom_memory,
+    format_profile_markdown,
+    load_profile,
+    remove_custom_memory,
+)
+from weather_agent.tts_service import clean_markdown_for_speech
 from weather_agent.graph import graph
 from langchain_core.messages import HumanMessage
 
@@ -104,10 +111,100 @@ def test_graph_end_to_end():
     print("\n🎉 All LangGraph End-to-End Tests Passed Successfully!")
 
 
+def test_optimal_window_service():
+    print("Testing Hourly Optimal Outdoor & Cycling Window Finder...")
+    hourly_mock = {
+        "time": [f"2026-11-08T{h:02d}:00" for h in range(6, 21)],
+        "temperature_2m": [6.0, 7.0, 9.0, 11.0, 13.0, 15.0, 16.0, 16.5, 15.0, 13.0, 11.0, 10.0, 8.0, 7.0, 6.0],
+        "apparent_temperature": [4.0, 5.0, 7.0, 9.0, 12.0, 14.0, 15.0, 15.5, 14.0, 12.0, 9.0, 8.0, 6.0, 5.0, 4.0],
+        "precipitation_probability": [0] * 15,
+        "precipitation": [0.0] * 15,
+        "weather_code": [1] * 15,
+        "wind_speed_10m": [8.0, 9.0, 10.0, 11.0, 12.0, 12.0, 11.0, 10.0, 9.0, 8.0, 8.0, 7.0, 6.0, 6.0, 5.0],
+        "wind_gusts_10m": [12.0, 14.0, 15.0, 16.0, 17.0, 17.0, 16.0, 15.0, 14.0, 12.0, 12.0, 10.0, 9.0, 9.0, 8.0],
+    }
+    opt = find_optimal_outdoor_windows(hourly_mock)
+    assert opt["has_data"] is True
+    best = opt["best_window"]
+    assert "label" in best
+    assert best["avg_score"] > 60
+    assert "temp_f" in best
+    assert "wind_mph" in best
+    print(f"Optimal Window: {best['label']} (Score: {best['avg_score']}/100, Temp: {best['temp_f']}°F)")
+    print("✅ Optimal cycling window finder passed successfully!\n")
+
+
+def test_memory_system():
+    print("Testing Baju's Persistent Personal Memory Service...")
+    profile = load_profile()
+    assert profile["user"]["nickname"] == "Baju"
+    assert "Ferrari" in profile["sports"]["f1_teams"] or "Scuderia Ferrari" in profile["sports"]["f1_teams"]
+    assert "Chicago Bears" in profile["sports"]["nfl_teams"]
+
+    # Test adding a custom memory
+    success = add_custom_memory("Test Memory: Baju prefers riding with sunglasses.")
+    assert success is True
+
+    # Test memory profile markdown
+    md = format_profile_markdown()
+    assert "Aura Memory & Personal Profile for Baju" in md
+    assert "Test Memory" in md
+
+    # Clean up test note
+    p2 = load_profile()
+    notes = p2.get("custom_notes", [])
+    for idx, n in enumerate(notes):
+        if "Test Memory" in n.get("note", ""):
+            remove_custom_memory(idx)
+            break
+
+    print("✅ Memory system passed successfully!\n")
+
+
+def test_tts_service():
+    print("Testing Zero-Cost TTS Markdown Cleaner...")
+    sample_md = """# 🌤️ Aura Daily Briefing for Baju
+> Hello Baju! Here is your weather.
+- **Condition:** ☀️ Clear sky
+- **Temperature:** 15°C (59°F)
+| Metric | Value |
+| --- | --- |
+| Rain | 0% |
+"""
+    clean_speech = clean_markdown_for_speech(sample_md)
+    assert "Hello Baju" in clean_speech
+    assert "#" not in clean_speech
+    assert "|" not in clean_speech
+    print(f"Cleaned Speech: '{clean_speech[:80]}...'")
+    print("✅ TTS markdown cleaner passed successfully!\n")
+
+
+def test_graph_memory_intents():
+    print("Testing LangGraph Memory Intents...")
+    # View memory
+    res_view = graph.invoke({
+        "messages": [HumanMessage(content="What do you remember about me?")]
+    })
+    assert res_view.get("final_report")
+    assert "Aura Memory & Personal Profile for Baju" in res_view["final_report"]
+
+    # Store memory
+    res_store = graph.invoke({
+        "messages": [HumanMessage(content="Remember that I prefer cycling on paved bike paths")]
+    })
+    assert res_store.get("final_report")
+    assert "Memory Updated for Baju" in res_store["final_report"]
+    print("✅ Memory graph intents passed successfully!\n")
+
+
 if __name__ == "__main__":
     try:
+        test_optimal_window_service()
+        test_memory_system()
+        test_tts_service()
         test_news_service()
         test_events_and_sports_service()
+        test_graph_memory_intents()
         test_graph_end_to_end()
     except Exception as e:
         print(f"❌ Test failed: {e}")

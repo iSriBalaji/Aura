@@ -11,8 +11,9 @@ class WeatherAgentState(TypedDict, total=False):
     # Conversation messages (standard LangGraph message list)
     messages: Annotated[List[AnyMessage], add_messages]
 
-    # Intent routing: 'weather', 'news_digest', 'news_deepdive', 'events_sports', 'combined'
+    # Intent routing: 'weather', 'news_digest', 'news_deepdive', 'events_sports', 'combined', 'memory_view', 'memory_store'
     intent: Optional[str]
+    memory_note: Optional[str]
 
     # Geolocation / target location
     location_query: Optional[str]

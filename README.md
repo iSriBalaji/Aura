@@ -7,8 +7,11 @@ Aura delivers daily actionable intelligence across four key areas:
 2. **🚴‍♂️ Cycling Suitability**: Evaluates road grip, aerodynamic wind drag, thermal comfort, and severe weather hazards to compute a 0–100 Cycling Score, recommended cycling kit, and route safety guidance.
 3. **📰 Trending News Research & Deep-Dives**: Live monitoring of Technology, Politics, Science, and World events from Google News RSS feeds with short, reliable talking points and interactive background deep-dives.
 4. **🎟️ US Events & Sports Pulse**: Curates major US conferences, music festivals, NFL, Formula 1, and Cricket updates with natural conversation starters for networking and social discussions.
-5. **📍 Location Flexibility**: Automatically detects current device location via IP geolocation fallback or geocodes any city, address, or latitude/longitude coordinates.
-6. **☁️ LangGraph Cloud & Studio Ready**: Pre-configured with `langgraph.json` targeting Python 3.11 for single-click cloud deployment.
+5. **⏱️ Hourly Outdoor & Cycling "Optimal Window" Finder**: Scans hourly metrics across daylight hours to pinpoint the exact contiguous 2–3 hour sweet spot for cycling (maximizing comfort, low wind, optimal road traction) along with specific avoid windows.
+6. **🎙️ Zero-Cost Voice Audio Briefings**: Browser-native Web Speech API + gTTS speech audio integration enables listening to briefings with zero API cost and zero server latency.
+7. **🧠 Persistent Personal Memory for Baju**: Local zero-cost JSON memory storing Baju's preferences (F1 teams: Ferrari/McLaren/Norris, NFL: Chicago Bears, Cricket: India/CSK, cycling comfort thresholds, and custom learned instructions).
+8. **📍 Location Flexibility**: Automatically detects current device location via IP geolocation fallback or geocodes any city, address, or latitude/longitude coordinates.
+9. **🚀 Streamlit Web App & Cloud Ready**: Fully functional Streamlit app optimized for mobile & desktop with one-click deployment.
 
 ---
 

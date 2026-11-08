@@ -3,8 +3,8 @@ Provides reliable, consistent, and scientifically grounded calculations
 independent of LLM hallucinations while giving rich data for LLM synthesis.
 """
 
-from datetime import datetime
-from typing import Any, Dict, List, Tuple
+from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional, Tuple
 from weather_agent.weather_service import c_to_f, kmh_to_mph
 
 WMO_WEATHER_CODES: Dict[int, Dict[str, str]] = {
@@ -341,6 +341,268 @@ def evaluate_cycling(
     }
 
 
+def find_optimal_outdoor_windows(
+    hourly_data: Dict[str, Any],
+    target_date: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Analyze hourly metrics to pinpoint the optimal 2-3 hour window for cycling/outdoor activities,
+    along with periods to avoid (e.g. sharp wind gusts, cold chill, or rain showers).
+    """
+    times = hourly_data.get("time", [])
+    if not times:
+        return {
+            "has_data": False,
+            "best_window": {
+                "label": "1:00 PM – 4:00 PM",
+                "avg_score": 75,
+                "badge": "🟢 Good",
+                "temp_f": 58.0,
+                "wind_mph": 10.0,
+                "precip_prob": 5,
+                "summary": "Midday is typically the most comfortable riding window with warmer ambient temperatures.",
+            },
+            "avoid_windows": [],
+            "timeline": [],
+        }
+
+    # Determine date to evaluate
+    if not target_date:
+        target_date = times[0][:10]
+
+    temps = hourly_data.get("temperature_2m", [])
+    apparents = hourly_data.get("apparent_temperature", [])
+    precip_probs = hourly_data.get("precipitation_probability", [])
+    precips = hourly_data.get("precipitation", [])
+    codes = hourly_data.get("weather_code", [])
+    winds = hourly_data.get("wind_speed_10m", [])
+    gusts = hourly_data.get("wind_gusts_10m", [])
+
+    hours_list: List[Dict[str, Any]] = []
+
+    for idx, t_str in enumerate(times):
+        if not t_str.startswith(target_date):
+            continue
+
+        try:
+            dt = datetime.fromisoformat(t_str)
+        except Exception:
+            continue
+
+        # Focus on daytime/active hours: 06:00 to 21:00
+        if not (6 <= dt.hour <= 21):
+            continue
+
+        t_c = temps[idx] if idx < len(temps) else 15.0
+        app_c = apparents[idx] if idx < len(apparents) else t_c
+        p_prob = precip_probs[idx] if idx < len(precip_probs) else 0.0
+        p_mm = precips[idx] if idx < len(precips) else 0.0
+        w_code = codes[idx] if idx < len(codes) else 0
+        w_kmh = winds[idx] if idx < len(winds) else 10.0
+        g_kmh = gusts[idx] if idx < len(gusts) else w_kmh
+
+        cyc_eval = evaluate_cycling(
+            temp_c=t_c,
+            apparent_temp_c=app_c,
+            wind_speed_kmh=w_kmh,
+            wind_gusts_kmh=g_kmh,
+            precip_prob=p_prob,
+            precip_mm=p_mm,
+            weather_code=w_code,
+        )
+
+        time_label = dt.strftime("%I:%M %p").lstrip("0")
+        wmo = get_wmo_info(w_code)
+
+        hours_list.append({
+            "datetime": dt,
+            "hour": dt.hour,
+            "time_label": time_label,
+            "temp_c": t_c,
+            "temp_f": c_to_f(t_c),
+            "apparent_temp_f": c_to_f(app_c),
+            "wind_mph": kmh_to_mph(w_kmh),
+            "gusts_mph": kmh_to_mph(g_kmh),
+            "precip_prob": p_prob,
+            "precip_mm": p_mm,
+            "weather_icon": wmo["icon"],
+            "weather_name": wmo["name"],
+            "score": cyc_eval["score"],
+            "rating": cyc_eval["rating"],
+            "badge": cyc_eval["badge"],
+        })
+
+    if not hours_list:
+        return {
+            "has_data": False,
+            "best_window": {
+                "label": "1:00 PM – 4:00 PM",
+                "avg_score": 75,
+                "badge": "🟢 Good",
+                "temp_f": 58.0,
+                "wind_mph": 10.0,
+                "precip_prob": 5,
+                "summary": "Midday is typically the most comfortable window.",
+            },
+            "avoid_windows": [],
+            "timeline": [],
+        }
+
+    # Evaluate 2-hour and 3-hour contiguous windows
+    candidates = []
+    for win_len in (3, 2):
+        if len(hours_list) < win_len:
+            continue
+        for start_idx in range(len(hours_list) - win_len + 1):
+            window_slice = hours_list[start_idx : start_idx + win_len]
+            avg_score = round(sum(h["score"] for h in window_slice) / win_len, 1)
+            max_rain = max(h["precip_prob"] for h in window_slice)
+            avg_temp = round(sum(h["temp_f"] for h in window_slice) / win_len, 1)
+            avg_wind = round(sum(h["wind_mph"] for h in window_slice) / win_len, 1)
+            max_gust = max(h["gusts_mph"] for h in window_slice)
+
+            start_dt = window_slice[0]["datetime"]
+            end_dt = window_slice[-1]["datetime"] + timedelta(hours=1)
+            label = f"{start_dt.strftime('%I:%M %p').lstrip('0')} – {end_dt.strftime('%I:%M %p').lstrip('0')}"
+
+            # Bonus for 3-hour over 2-hour if scores are very close
+            sort_weight = avg_score + (1.5 if win_len == 3 else 0.0)
+
+            candidates.append({
+                "label": label,
+                "win_len": win_len,
+                "avg_score": avg_score,
+                "sort_weight": sort_weight,
+                "max_rain": max_rain,
+                "avg_temp": avg_temp,
+                "avg_wind": avg_wind,
+                "max_gust": max_gust,
+                "start_hour": window_slice[0]["hour"],
+                "start_time": window_slice[0]["time_label"],
+                "end_time": end_dt.strftime("%I:%M %p").lstrip("0"),
+                "icons": [h["weather_icon"] for h in window_slice],
+            })
+
+    # Pick the best candidate window
+    candidates.sort(key=lambda c: (c["sort_weight"], -c["max_rain"], -c["max_gust"]), reverse=True)
+    best_candidate = candidates[0] if candidates else None
+
+    if best_candidate:
+        score_val = best_candidate["avg_score"]
+        if score_val >= 85:
+            badge = "🟢 Prime Ride Window"
+        elif score_val >= 70:
+            badge = "🟢 Good Ride Window"
+        elif score_val >= 50:
+            badge = "🟡 Moderate Window"
+        else:
+            badge = "🟠 Challenging Window"
+
+        summary = (
+            f"Expected {best_candidate['avg_temp']:.0f}°F, {best_candidate['max_rain']:.0f}% rain chance, "
+            f"and gentle winds around {best_candidate['avg_wind']:.0f} mph (gusts {best_candidate['max_gust']:.0f} mph). "
+            f"Optimal tarmac traction and minimal aerodynamic resistance."
+        )
+        best_window = {
+            "label": best_candidate["label"],
+            "avg_score": best_candidate["avg_score"],
+            "badge": badge,
+            "temp_f": best_candidate["avg_temp"],
+            "wind_mph": best_candidate["avg_wind"],
+            "gusts_mph": best_candidate["max_gust"],
+            "precip_prob": best_candidate["max_rain"],
+            "summary": summary,
+        }
+    else:
+        best_window = {
+            "label": "1:00 PM – 4:00 PM",
+            "avg_score": 70,
+            "badge": "🟢 Good",
+            "temp_f": 58.0,
+            "wind_mph": 10.0,
+            "precip_prob": 10,
+            "summary": "Pleasant midday conditions.",
+        }
+
+    # Find Avoid Windows
+    avoid_windows: List[Dict[str, Any]] = []
+    current_avoid_run: List[Dict[str, Any]] = []
+
+    for h in hours_list:
+        is_bad = False
+        reasons = []
+        if h["score"] < 45:
+            is_bad = True
+            reasons.append(f"Low suitability score ({h['score']}/100)")
+        if h["precip_prob"] >= 40 or h["precip_mm"] >= 1.0:
+            is_bad = True
+            reasons.append(f"High rain chance ({h['precip_prob']:.0f}%)")
+        if h["gusts_mph"] >= 24.0 or h["wind_mph"] >= 18.0:
+            is_bad = True
+            reasons.append(f"Turbulent winds/gusts ({h['gusts_mph']:.0f} mph)")
+        if h["apparent_temp_f"] < 38.0:
+            is_bad = True
+            reasons.append(f"Freezing wind chill ({h['apparent_temp_f']:.0f}°F)")
+
+        if is_bad:
+            h_copy = dict(h)
+            h_copy["reasons"] = reasons
+            current_avoid_run.append(h_copy)
+        else:
+            if current_avoid_run:
+                # Close run
+                s_dt = current_avoid_run[0]["datetime"]
+                e_dt = current_avoid_run[-1]["datetime"] + timedelta(hours=1)
+                lbl = f"{s_dt.strftime('%I:%M %p').lstrip('0')} – {e_dt.strftime('%I:%M %p').lstrip('0')}"
+                # Combine unique reasons
+                all_reasons = []
+                for bad_h in current_avoid_run:
+                    for r in bad_h["reasons"]:
+                        if r not in all_reasons:
+                            all_reasons.append(r)
+                avoid_windows.append({
+                    "label": lbl,
+                    "reason": "; ".join(all_reasons),
+                    "hours_count": len(current_avoid_run),
+                })
+                current_avoid_run = []
+
+    if current_avoid_run:
+        s_dt = current_avoid_run[0]["datetime"]
+        e_dt = current_avoid_run[-1]["datetime"] + timedelta(hours=1)
+        lbl = f"{s_dt.strftime('%I:%M %p').lstrip('0')} – {e_dt.strftime('%I:%M %p').lstrip('0')}"
+        all_reasons = []
+        for bad_h in current_avoid_run:
+            for r in bad_h["reasons"]:
+                if r not in all_reasons:
+                    all_reasons.append(r)
+        avoid_windows.append({
+            "label": lbl,
+            "reason": "; ".join(all_reasons),
+            "hours_count": len(current_avoid_run),
+        })
+
+    # Timeline of daytime hours
+    timeline = [
+        {
+            "time": h["time_label"],
+            "temp_f": h["temp_f"],
+            "wind_mph": h["wind_mph"],
+            "precip_prob": h["precip_prob"],
+            "icon": h["weather_icon"],
+            "score": h["score"],
+            "rating": h["rating"],
+        }
+        for h in hours_list
+    ]
+
+    return {
+        "has_data": True,
+        "best_window": best_window,
+        "avoid_windows": avoid_windows,
+        "timeline": timeline,
+    }
+
+
 def analyze_weather(weather_data: Dict[str, Any]) -> Dict[str, Any]:
     """Perform complete multi-day analysis: Current, Today, and the next 7 days."""
     current = weather_data.get("current", {})
@@ -458,6 +720,10 @@ def analyze_weather(weather_data: Dict[str, Any]) -> Dict[str, Any]:
     # Sort days by cycling suitability score
     sorted_cycling = sorted(best_cycling_days, key=lambda x: x[1], reverse=True)
 
+    # Hourly optimal outdoor/cycling window analysis
+    hourly_data = weather_data.get("hourly", {})
+    optimal_window = find_optimal_outdoor_windows(hourly_data)
+
     return {
         "current": {
             "temp_c": curr_temp_c,
@@ -477,4 +743,5 @@ def analyze_weather(weather_data: Dict[str, Any]) -> Dict[str, Any]:
         },
         "daily": daily_reports,
         "best_cycling_rankings": sorted_cycling,
+        "optimal_window": optimal_window,
     }

@@ -26,6 +26,11 @@ from weather_agent.llm_synthesizer import (
     synthesize_news_digest,
     synthesize_weather_report,
 )
+from weather_agent.memory_service import (
+    add_custom_memory,
+    detect_memory_intent,
+    format_profile_markdown,
+)
 from weather_agent.news_service import (
     fetch_trending_news,
     search_news_topic,
@@ -51,6 +56,17 @@ def route_intent_node(state: WeatherAgentState) -> Dict[str, Any]:
         last_text = (
             last_msg.content if isinstance(last_msg.content, str) else str(last_msg.content)
         )
+
+    # 0. Personal Memory cues (view profile or store instruction)
+    mem_intent = detect_memory_intent(last_text)
+    if mem_intent:
+        if mem_intent["action"] == "view":
+            return {"intent": "memory_view"}
+        elif mem_intent["action"] == "store":
+            return {
+                "intent": "memory_store",
+                "memory_note": mem_intent.get("note", ""),
+            }
 
     # 1. News Deep Dive / Follow-up cues
     deep_dive_patterns = [
@@ -333,12 +349,39 @@ def synthesize_combined_node(state: WeatherAgentState) -> Dict[str, Any]:
     }
 
 
+def handle_memory_node(state: WeatherAgentState) -> Dict[str, Any]:
+    """Handle memory view or store actions for Baju."""
+    intent = state.get("intent")
+    if intent == "memory_store":
+        note = state.get("memory_note", "").strip()
+        if note:
+            add_custom_memory(note)
+            resp = (
+                f"# 🧠 Memory Updated for Baju\n\n"
+                f"> **Got it, Baju!** I've locked this into my persistent memory:\n\n"
+                f"📌 *\"{note}\"*\n\n"
+                f"I will keep this in mind across all your future weather, cycling, and news briefings. "
+                f"You can view everything I remember anytime by asking *\"Show my memory\"* or *\"What do you remember about me?\"*."
+            )
+        else:
+            resp = "Hello Baju! Please tell me what you'd like me to remember (e.g. *\"Remember that I prefer morning rides\"*)."
+    else:
+        resp = format_profile_markdown()
+
+    return {
+        "final_report": resp,
+        "messages": [AIMessage(content=resp)],
+    }
+
+
 # Routing Condition Function
 def choose_intent_branch(
     state: WeatherAgentState,
-) -> Literal["weather_branch", "news_branch", "deepdive_branch", "events_branch", "combined_branch"]:
+) -> Literal["weather_branch", "news_branch", "deepdive_branch", "events_branch", "combined_branch", "memory_branch"]:
     intent = state.get("intent", "weather")
-    if intent == "events_sports":
+    if intent in ("memory_view", "memory_store"):
+        return "memory_branch"
+    elif intent == "events_sports":
         return "events_branch"
     elif intent == "news_deepdive":
         return "deepdive_branch"
@@ -360,6 +403,7 @@ builder.add_node("decision_engine", decision_engine_node)
 builder.add_node("fetch_news_digest", fetch_news_digest_node)
 builder.add_node("fetch_news_deepdive", fetch_news_deepdive_node)
 builder.add_node("fetch_events_and_sports", fetch_events_and_sports_node)
+builder.add_node("handle_memory", handle_memory_node)
 builder.add_node("synthesize_weather", synthesize_weather_node)
 builder.add_node("synthesize_news", synthesize_news_node)
 builder.add_node("synthesize_deepdive", synthesize_deepdive_node)
@@ -377,6 +421,7 @@ builder.add_conditional_edges(
         "deepdive_branch": "fetch_news_deepdive",
         "events_branch": "fetch_events_and_sports",
         "combined_branch": "resolve_location",
+        "memory_branch": "handle_memory",
     },
 )
 
@@ -417,6 +462,9 @@ builder.add_edge("fetch_news_deepdive", "synthesize_deepdive")
 
 # Events & Sports Branch
 builder.add_edge("fetch_events_and_sports", "synthesize_events")
+
+# Memory Branch
+builder.add_edge("handle_memory", END)
 
 # Terminal Edges to END
 builder.add_edge("synthesize_weather", END)

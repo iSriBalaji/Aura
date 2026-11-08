@@ -12,6 +12,7 @@ from weather_agent.events_service import (
     fallback_format_events_and_sports,
     get_current_window,
 )
+from weather_agent.memory_service import get_memory_summary_prompt
 from weather_agent.news_service import (
     fallback_format_news_deepdive,
     fallback_format_news_digest,
@@ -109,6 +110,24 @@ def fallback_format_report(
             lines.append(f"  - ⚠️ {tip}")
     lines.append("")
 
+    # Hourly Optimal Window Finder
+    opt_win = analysis.get("optimal_window", {})
+    if opt_win and opt_win.get("best_window"):
+        best = opt_win["best_window"]
+        lines.append("## ⏱️ Optimal Cycling & Outdoor Window (Hourly Optimizer)")
+        lines.append(f"- **🌟 Prime Window:** **{best['label']}** ({best.get('badge', '🟢 Good')}, Score: **{best['avg_score']}/100**)")
+        lines.append(f"  - 🌡️ Avg Temp: **{best.get('temp_f', 0):.0f}°F** | 🌧️ Rain Chance: **{best.get('precip_prob', 0):.0f}%** | 💨 Wind: **{best.get('wind_mph', 0):.0f} mph** (Gusts: **{best.get('gusts_mph', 0):.0f} mph**)")
+        lines.append(f"  - 💡 **Analysis:** {best.get('summary', '')}")
+
+        avoid = opt_win.get("avoid_windows", [])
+        if avoid:
+            lines.append(f"- **⚠️ Times / Windows to Avoid:**")
+            for av in avoid:
+                lines.append(f"  - 🛑 **{av['label']}**: {av['reason']}")
+        else:
+            lines.append(f"- **✅ Avoid Windows:** None — overall daylight hours remain safe and rideable.")
+        lines.append("")
+
     # 7-Day Forecast Overview
     lines.append("## 📅 7-Day Outlook & Decision Table")
     lines.append("| Date | Weather | Temp Range (C / F) | Rain Prob | Layers Needed | Cycling Score & Status |")
@@ -149,7 +168,10 @@ def synthesize_weather_report(
 
     prompt = f"""You are Aura, the dedicated personal AI advisor to Baju (whose full name is Sri Balaji).
 Always address him warmly and directly as Baju.
-Analyze the structured live weather, clothing calculations, and cycling suitability metrics below, then produce an engaging, clear, and actionable Markdown report tailored for Baju.
+
+{get_memory_summary_prompt()}
+
+Analyze the structured live weather, clothing calculations, and cycling suitability metrics below, then produce an engaging, clear, and actionable Markdown report tailored for Baju (taking into account his personal cycling thresholds and preferences above).
 
 Target Location: {location_name}
 User Query: {user_query or 'General daily and weekly forecast and advice'}
@@ -158,13 +180,15 @@ Structured Decision Data:
 - Current Live Weather: {analysis['current']}
 - Daily Breakdown (Today + 7 Days): {analysis['daily']}
 - Cycling Rankings: {analysis['best_cycling_rankings']}
+- Hourly Optimal Outdoor Window: {analysis.get('optimal_window')}
 
 Structure your response with:
 1. 🌤️ Warm personal greeting to Baju, followed by Header & Location Summary with live metrics (Temp, Feels Like, Wind, Conditions).
 2. 👕 Today's Wardrobe & Layering Strategy (Exact layers: Base, Mid, Outer shell, Bottoms, Footwear, and Accessories).
 3. 🚴‍♂️ Today's Cycling Decision (Score /100, Rating Badge, kit, road/wind tips).
-4. 📅 7-Day Planning Table (Date, Weather, Temp C/F, Rain chance, Layers needed, Cycling score & status).
-5. 🏆 Weekly Decision Takeaways (Best cycling day vs day to avoid).
+4. ⏱️ Hourly Optimal Cycling & Outdoor Window (Best contiguous 2-3 hour window, exact time range, weather metrics, why it's optimal, and any avoid periods).
+5. 📅 7-Day Planning Table (Date, Weather, Temp C/F, Rain chance, Layers needed, Cycling score & status).
+6. 🏆 Weekly Decision Takeaways (Best cycling day vs day to avoid).
 
 Be direct, highly organized, warm, and practical.
 """
@@ -191,6 +215,9 @@ def synthesize_news_digest(
 
     prompt = f"""You are Aura, the dedicated personal AI advisor to Baju (whose full name is Sri Balaji).
 Always address him warmly and directly as Baju.
+
+{get_memory_summary_prompt()}
+
 Review the live trending news stories below across all 6 essential categories:
 1. 🌍 General & World News
 2. 💻 Technology & AI
@@ -288,6 +315,8 @@ def synthesize_events_and_sports(
 
     prompt = f"""You are Aura, the dedicated personal AI advisor to Baju (whose full name is Sri Balaji).
 Always address him warmly and directly as Baju.
+
+{get_memory_summary_prompt()}
 
 CRITICAL DATE AND TEMPORAL CONSTRAINT:
 Today's exact date is: {win['today_str']}

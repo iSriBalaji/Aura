@@ -1,0 +1,61 @@
+{
+  "user": {
+    "full_name": "Sri Balaji",
+    "nickname": "Baju",
+    "home_location": "Prospect Heights, Illinois",
+    "timezone": "America/Chicago",
+    "units": "Fahrenheit / mph"
+  },
+  "sports": {
+    "f1_teams": [
+      "Scuderia Ferrari",
+      "McLaren"
+    ],
+    "f1_drivers": [
+      "Lando Norris",
+      "Charles Leclerc"
+    ],
+    "nfl_teams": [
+      "Chicago Bears"
+    ],
+    "cricket_teams": [
+      "India National Cricket Team",
+      "Chennai Super Kings (CSK)"
+    ]
+  },
+  "cycling": {
+    "bike_type": "Road bike (aerodynamic drop bars)",
+    "min_comfortable_temp_f": 45.0,
+    "max_acceptable_wind_mph": 18.0,
+    "max_acceptable_gusts_mph": 24.0,
+    "preferred_ride_window_hours": 2.5,
+    "ideal_ride_time_of_day": "Early to mid-afternoon (warmest pavement)"
+  },
+  "news_and_interests": {
+    "topics": [
+      "Artificial Intelligence & Technology",
+      "Formula 1 & Motorsport",
+      "Global Economy & Financial Markets",
+      "Space & Frontier Science"
+    ],
+    "digest_style": "Concise 2-3 line bullet takeaways (What happened, Context, What to know)"
+  },
+  "custom_notes": [
+    {
+      "timestamp": "2026-11-08T08:00:00",
+      "note": "Prefers cycling in the early afternoon when the road warms up."
+    },
+    {
+      "timestamp": "2026-11-08T08:00:00",
+      "note": "Always alert on wind gusts above 20 mph before outdoor rides."
+    },
+    {
+      "timestamp": "2026-11-08T08:00:00",
+      "note": "Aura should always address him warmly as Baju."
+    },
+    {
+      "timestamp": "2026-11-08T06:54:28",
+      "note": "I prefer cycling on paved bike paths"
+    }
+  ]
+}

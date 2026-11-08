@@ -125,12 +125,18 @@ def main():
         "-s", "--sports", action="store_true", help="Fetch sports updates (Football, F1, Cricket, NBA)"
     )
     parser.add_argument(
+        "--profile", "--memory", action="store_true", help="View Baju's persistent personal profile & memory"
+    )
+    parser.add_argument(
         "-i", "--interactive", action="store_true", help="Launch interactive chat mode"
     )
 
     args = parser.parse_args()
 
-    if args.interactive:
+    if args.profile:
+        from weather_agent.memory_service import format_profile_markdown
+        print(format_profile_markdown())
+    elif args.interactive:
         interactive_mode()
     else:
         run_agent(
